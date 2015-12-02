@@ -3,3 +3,7 @@ out/
 
 ## intellij folder
 .idea/
+
+## config files should not be touched
+gmail.properties
+oanda.properties

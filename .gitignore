@@ -1,0 +1,5 @@
+## artifact jars out folder
+out/
+
+## intellij folder
+.idea/

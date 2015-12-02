@@ -22,6 +22,8 @@ public class Connector {
 	public static final String POST = "POST";
 	/** DELETE http method */
 	public static final String DELETE = "DELETE";
+	/** PATCH http method */
+	public static final String PATCH = "PATCH";
 
 	/** The HttpURLConnection connection in this connector */
 	private HttpURLConnection con;

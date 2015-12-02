@@ -195,11 +195,14 @@ public abstract class AbstractStrategyHandler implements StrategyHandler {
 	/**
 	 * Places a spot trade given the side (buy or sell), position size in units, and currency pair.
 	 *
+	 * Throws an exception if the trade did not go through successfully. @TODO
+	 *
 	 * @param side buy or sell
 	 * @param psize position size (in units)
 	 * @param pair currency pair
+	 * @return the id of the trade that was just opened
 	 */
-	public void openTrade(String side, int psize, String pair) {
+	public long openTrade(String side, int psize, String pair) {
 		HashMap<String, String> props = new LinkedHashMap<String, String>();
 		props.put(INSTRUMENT, pair);
 		props.put(UNITS, Integer.toString(psize));
@@ -208,8 +211,10 @@ public abstract class AbstractStrategyHandler implements StrategyHandler {
 		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + OANDA_ACCOUNT_ID + "/orders", Connector.POST, OANDA_API_KEY, props);
 
 		String response = con.getResponse();
-		// @TODO check response to make sure trade was successfully placed
-		// System.err.println(response);
+		JSONObject json = new JSONObject(response).getJSONObject("tradeOpened");
+		// if (json == null) throw new RuntimeException("Tried to open trade but it failed: pair = " + pair);
+		long id = Long.parseLong(json.getString("id"));
+		return id;
 	}
 
 	/**
@@ -239,6 +244,23 @@ public abstract class AbstractStrategyHandler implements StrategyHandler {
 		String response = con.getResponse();
 		// @TODO check response to make sure close was successful
 		// System.out.println(response);
+	}
+
+	/**
+	 * Modifies an existing trade, giving it a stop loss and a trailing stop.
+	 *
+	 * @param tradeId the id of the trade to modify
+	 * @param stopLoss initial stop loss in pips
+	 * @param trailingStop trailing stop loss in pips
+	 */
+	public void modifyTrade(long tradeId, double stopLoss, double trailingStop) {
+		HashMap<String, String> params = new LinkedHashMap<String, String>();
+		params.put(STOP_LOSS, Double.toString(stopLoss));
+		params.put(TRAILING_STOP, Double.toString(trailingStop));
+		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + OANDA_ACCOUNT_ID + "/trades/" + tradeId, Connector.PATCH, OANDA_API_KEY, params);
+		String response = con.getResponse();
+		// @TODO check response to make sure close was successful
+		// @TODO verify that this method works
 	}
 
 	/**

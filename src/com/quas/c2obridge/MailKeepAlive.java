@@ -4,7 +4,6 @@ import com.sun.mail.iap.ProtocolException;
 import com.sun.mail.imap.IMAPFolder;
 import com.sun.mail.imap.protocol.IMAPProtocol;
 
-import javax.mail.Folder;
 import javax.mail.MessagingException;
 
 /**

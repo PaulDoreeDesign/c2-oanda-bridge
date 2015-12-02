@@ -45,6 +45,8 @@ public interface StrategyHandler {
 	public static final String TYPE = "type";
 	public static final String ID = "id";
 	public static final String BALANCE = "balance";
+	public static final String STOP_LOSS = "stopLoss";
+	public static final String TRAILING_STOP = "trailingStop";
 
 	/**
 	 * Constants which represent values to be sent as property values

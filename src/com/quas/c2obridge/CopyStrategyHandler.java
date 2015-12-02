@@ -29,7 +29,7 @@ public class CopyStrategyHandler extends AbstractStrategyHandler {
 		double compare = getOandaPrice(side, pair);
 		double diff = roundPips(pair, Math.abs(compare - oprice));
 
-		if (action == OPEN) {
+		if (action.equals(OPEN)) {
 			// diff = difference between C2's opening price and oanda's current price, in pips
 			if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && compare < oprice) || (side.equals(SELL) && compare > oprice)) {
 				// pip difference is at most negative 5 pips (in direction of our favour)
@@ -41,7 +41,7 @@ public class CopyStrategyHandler extends AbstractStrategyHandler {
 				openTrade(side, oandaPsize, pair);
 			} else {
 				// missed opportunity
-				System.err.println("missed opportunity to place order to " + side + " " + pair + " (pip diff = " + diff +
+				System.err.println("[CopyStrategy] missed opportunity to place order to " + side + " " + pair + " (pip diff = " + diff +
 						" - actiontype = " + side + ", compare = " + compare + ", oprice = " + oprice + ")");
 				// @TODO maybe place limit order?
 			}

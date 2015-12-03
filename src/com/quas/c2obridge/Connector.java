@@ -54,6 +54,11 @@ public class Connector {
 	public Connector(String urlString, String method, String apiKey, HashMap<String, String> props) {
 		this.urlString = urlString;
 
+		boolean patch = method.equals(PATCH);
+		if (patch) { // method override
+			method = POST;
+		}
+
 		try {
 			byte[] bytes = null;
 			// set all additional properties
@@ -69,7 +74,7 @@ public class Connector {
 
 					first = false;
 				}
-				System.out.println("writeLine = " + writeLine);
+				// System.out.println("writeLine = " + writeLine);
 
 				bytes = writeLine.getBytes(UTF8);
 				this.writeString = writeLine;
@@ -80,6 +85,10 @@ public class Connector {
 			con.setRequestMethod(method);
 			con.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 			con.setRequestProperty("Authorization", "Bearer " + apiKey);
+			if (patch) {
+				con.setRequestProperty("X-HTTP-Method-Override", PATCH);
+				con.setRequestMethod(POST);
+			}
 
 			if (bytes != null) {
 				// con.setRequestProperty("Content-Length", String.valueOf(bytes.length));

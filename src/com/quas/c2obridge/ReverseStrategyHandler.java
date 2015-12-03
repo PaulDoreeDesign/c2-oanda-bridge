@@ -10,16 +10,25 @@ import java.io.IOException;
  *
  * Created by Quasar on 3/12/2015.
  */
-public class ReverseStrategyHandler extends AbstractStrategyHandler {
+public class ReverseStrategyHandler extends StrategyHandler {
 
 	/** Multiplier applied against C2 position sizing */
 	private static final int POS_SIZE_MULTIPLIER = 8;
 
 	/** Stop-loss in pips */
-	private static final int STOP_LOSS = 15;
+	private static final int STOP_LOSS = 18;
 
 	/** Trailing stop-loss in pips */
-	private static final int TRAILING_STOP_LOSS = 30;
+	private static final int TRAILING_STOP_LOSS = 24;
+
+	/**
+	 * Constructor for the reverse strategy.
+	 *
+	 * @param accountId the account id for the reverse strategy
+	 */
+	public ReverseStrategyHandler(int accountId) {
+		super(accountId);
+	}
 
 	/**
 	 * Called by handleMessage with the info extracted from the email.
@@ -35,11 +44,12 @@ public class ReverseStrategyHandler extends AbstractStrategyHandler {
 		double diff = roundPips(pair, Math.abs(curPrice - oprice));
 
 		if (action.equals(OPEN)) {
+			// flip side first
+			side = side.equals(BUY) ? SELL : BUY;
+
 			// diff = difference between C2's opening price and oanda's current price, in pips
-			if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && curPrice > oprice) || (side.equals(SELL) && curPrice < oprice)) {
+			if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && curPrice < oprice) || (side.equals(SELL) && curPrice > oprice)) {
 				// pip difference is at most positive 5 pips (in direction of C2's favour), so try to place an order
-				// flip side first
-				side = side.equals(BUY) ? SELL : BUY;
 
 				// get our position sizing
 				int oandaPsize = convert(psize) * POS_SIZE_MULTIPLIER;
@@ -47,8 +57,11 @@ public class ReverseStrategyHandler extends AbstractStrategyHandler {
 				long id = openTrade(side, oandaPsize, pair); // id = id of the trade that is returned once it is placed
 
 				// modify the trade to give it a stop-loss
-				double stopLoss = side.equals(BUY) ? -STOP_LOSS : STOP_LOSS;
-				stopLoss += curPrice;
+				double stopLoss = curPrice;
+				double netPips = pipsToPrice(pair, STOP_LOSS);
+				if (side.equals(BUY)) stopLoss -= netPips;
+				else stopLoss += netPips;
+
 				modifyTrade(id, stopLoss, TRAILING_STOP_LOSS);
 			} else {
 				// missed opportunity

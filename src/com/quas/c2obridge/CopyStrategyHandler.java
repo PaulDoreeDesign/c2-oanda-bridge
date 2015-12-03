@@ -11,10 +11,19 @@ import java.util.ArrayList;
  *
  * Created by Quasar on 2/12/2015.
  */
-public class CopyStrategyHandler extends AbstractStrategyHandler {
+public class CopyStrategyHandler extends StrategyHandler {
 
 	/** Multiplier applied against C2 position sizing */
 	private static final int POS_SIZE_MULTIPLIER = 4;
+
+	/**
+	 * Constructor for the copy strategy.
+	 *
+	 * @param accountId the account id for the reverse strategy
+	 */
+	public CopyStrategyHandler(int accountId) {
+		super(accountId);
+	}
 
 	/**
 	 * Called by handleMessage with the info extracted from the email.

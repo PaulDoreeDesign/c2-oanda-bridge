@@ -8,23 +8,20 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Properties;
 
+
 /**
- * Created by Quasar on 27/11/2015.
+ * STRATEGIES:
+ * 1 - Exact copy of C2 (position sizing x4)
+ * 2 - Open positions of C2 (position sizing x4) with following rules:
+ * 		~ stop-loss at 2% of account (equivalent to 0.5% of C2)
+ * 		~ re-entry manual, after 5.0% loss of C2 only
+ * 3 - Make opposing trades to C2 - test different stop-losses ($500 or $1000 profit for C2) - trailing take-profits
+ *
+ * Other strategies to consider:
+ * - delayed entry - wait until C2 is negative a certain amount before entry
+ * - half-delayed entry - open half position, wait until C2 is negative a certain amount before entering 2nd half
  */
 public class Main {
-
-	/**
-	 * STRATEGY ID:
-	 * 1 - Exact copy of C2 (position sizing x4)
-	 * 2 - Open positions of C2 (position sizing x4) with following rules:
-	 * 		~ stop-loss at 2% of account (equivalent to 0.5% of C2)
-	 * 		~ re-entry manual, after 5.0% loss of C2 only
-	 * 3 - Make opposing trades to C2 - test different stop-losses ($500 or $1000 profit for C2) - trailing take-profits
-	 *
-	 * Other strategies to consider:
-	 * - waiting until C2 is negative by a certain amount before entering identical trade
-	 */
-	private static final int STRATEGY_ID = 1;
 
 	/** Email address without the @gmail.com domain */
 	private static final String EMAIL;
@@ -52,16 +49,6 @@ public class Main {
 		PrintStream ps = new PrintStream(fos);
 		System.setErr(ps);
 
-		// determine strategy and create instance of appropriate handler implementation
-		StrategyHandler messageHandler;
-		if (STRATEGY_ID == 1) {
-			messageHandler = new CopyStrategyHandler();
-		}
-		// else if (STRATEGY_ID == ...
-		if (messageHandler == null) {
-			throw new RuntimeException("Invalid STRATEGY_ID: " + STRATEGY_ID);
-		}
-
 		System.out.println("Connecting to mail server:");
 
 		// load gmail mailserver properties and connect to it
@@ -75,7 +62,7 @@ public class Main {
 		// open up inbox and pass to C2OBridge instance
 		IMAPFolder inbox = (IMAPFolder) store.getFolder("inbox");
 
-		C2OBridge app = new C2OBridge(inbox, messageHandler);
+		C2OBridge app = new C2OBridge(inbox);
 		app.readMessages();
 
 		// setup keep-alive thread

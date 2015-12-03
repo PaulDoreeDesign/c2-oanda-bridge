@@ -6,7 +6,12 @@ import com.sun.mail.imap.IdleManager;
 import javax.mail.*;
 import javax.mail.event.MessageCountAdapter;
 import javax.mail.event.MessageCountEvent;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -19,16 +24,47 @@ public class C2OBridge {
 	private Folder inbox;
 
 	/** MessageHandler implementation */
-	private StrategyHandler strategyHandler;
+	private List<StrategyHandler> strategyHandlers;
+
+	/** Oanda API details */
+	public static final String OANDA_API_KEY;
+	public static final String OANDA_API_URL;
+	/** Account IDs for respective strategies */
+	private static final int COPY_ACC_ID;
+	private static final int REVERSE_ACC_ID;
+
+	// load from props file
+	static {
+		Properties oandaProps = new Properties();
+		try {
+			oandaProps.load(new FileInputStream(new File("oanda.properties")));
+		} catch (IOException ioe) {
+			System.err.println("Error loading config.properties file: " + ioe);
+			ioe.printStackTrace(System.err);
+			System.exit(0);
+		}
+
+		OANDA_API_KEY = oandaProps.getProperty("API_KEY");
+		OANDA_API_URL = oandaProps.getProperty("API_URL");
+
+		COPY_ACC_ID = Integer.parseInt(oandaProps.getProperty("COPY_ACC_ID"));
+		REVERSE_ACC_ID = Integer.parseInt(oandaProps.getProperty("REVERSE_ACC_ID"));
+	}
 
 	/**
 	 * Creates an instance of the C2OBridge with the 'inbox' folder from the email account.
 	 *
 	 * @param inbox
 	 */
-	public C2OBridge(Folder inbox, StrategyHandler messageHandler) {
+	public C2OBridge(Folder inbox) {
 		this.inbox = inbox;
-		this.strategyHandler = messageHandler;
+
+		// initialise the applicable strategies and their account ids
+		this.strategyHandlers = new ArrayList<StrategyHandler>();
+		// copy strategy
+		strategyHandlers.add(new CopyStrategyHandler(COPY_ACC_ID));
+		// reverse strategy
+		strategyHandlers.add(new ReverseStrategyHandler(REVERSE_ACC_ID));
 	}
 
 	public void readMessages() {
@@ -42,14 +78,17 @@ public class C2OBridge {
 			for (Message message : messages) {
 				/*
 				try {
-					messageHandler.handleMessage(message);
+					for (StrategyHandler strategy : strategyHandlers) {
+						strategy.handleMessage(message);
+						sleep(1000);
+					}
 				} catch (Exception e) {
 					System.err.println("ERROR: " + e);
 					e.printStackTrace(System.err);
 				}
 				*/
 				String subject = message.getSubject();
-				if (subject.equals(StrategyHandler.SUBJECT_FIND)) {
+				if (subject.equals(IStrategyHandler.SUBJECT_FIND)) {
 					System.out.println("WARNING: new unhandled emails in inbox. force-quitting, check inbox manually...");
 					System.exit(0);
 				}
@@ -81,7 +120,11 @@ public class C2OBridge {
 					try {
 						for (Message message : messages) {
 							System.out.println("\n[" + Main.getCurrentTime() + "] Received a message with title = " + message.getSubject());
-							strategyHandler.handleMessage(message);
+							// run message through all the strategies
+							for (StrategyHandler strategy : strategyHandlers) {
+								strategy.handleMessage(message);
+								sleep(1000); // sleep for 1 sec between strategies to not exceed limit for Oanda API calls
+							}
 						}
 					} catch (IOException ioe) {
 						System.err.println("Error in C2OBridge.listen->messagesAdded(): " + ioe);
@@ -107,6 +150,14 @@ public class C2OBridge {
 		} catch (MessagingException me) {
 			System.err.println("Error in C2OBridge.listen(): " + me);
 			me.printStackTrace(System.err);
+		}
+	}
+
+	public void sleep(long millis) {
+		try {
+			Thread.sleep(millis);
+		} catch (InterruptedException ie) {
+			// ignore
 		}
 	}
 }

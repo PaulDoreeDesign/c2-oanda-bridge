@@ -14,6 +14,8 @@ import java.util.LinkedHashMap;
 import static com.quas.c2obridge.C2OBridge.*;
 
 /**
+ * Abstract base for strategy handlers.
+ *
  * Created by Quasar on 2/12/2015.
  */
 public abstract class StrategyHandler implements IStrategyHandler {

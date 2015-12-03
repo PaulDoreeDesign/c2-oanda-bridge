@@ -7,6 +7,7 @@ out/
 ## config files should not be touched
 gmail.properties
 oanda.properties
+smtp.properties
 
 ## error log
 err_log.txt

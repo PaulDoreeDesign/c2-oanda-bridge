@@ -2,11 +2,11 @@ package com.quas.c2obridge;
 
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Strategy #2: copy C2 but smartly!
@@ -18,6 +18,7 @@ import java.util.Set;
  *   ~ re-entry position size - 50% of position size multiplier (ie. if multiplier is 6, for re-entry, -> 3 instead)
  *   ~ only re-enter when there is ample evidence of reversal in our favour (eg. support or resistance, other patterns)
  *   ~ once re-entered, increasing position size is only allowed once per -2.5% of C2 account maximum
+ *   ~ manually re-entered trades will remain on the blacklist so will not be added to by the auto-trader
  * - keep a list of all currently-opened positions. when C2 sends open notice, check to see if the currency pair is on
  *   the local currently-open list, and the blacklist.
  *   ~ if on blacklist, show notification, do not open trade.
@@ -41,6 +42,12 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 	/** Overrides the StrategyHandler's MAX_PIP_DIFF */
 	private static final int MAX_PIP_DIFF = 1;
 
+	/** Smart copy file */
+	private static final String SMART_COPY_FILE = "smartcopy.properties";
+	/** For save properties */
+	private static final String CURRENTLY_OPEN = "CURRENTLY_OPEN";
+	private static final String BLACKLIST = "BLACKLIST";
+
 	/**
 	 * List of currency pairs that are on the local-currently-open list. (Does not mean it is necessarily currently
 	 * open on Oanda, as it could have been stopped out)
@@ -60,6 +67,81 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 
 		this.currentlyOpen = new HashSet<String>();
 		this.blacklist = new HashSet<String>();
+
+		// load saved data from properties file
+		Properties saveData = new Properties();
+		try {
+			saveData.load(new FileInputStream(new File(SMART_COPY_FILE)));
+
+			String[] currentlyOpenUnvalidated = saveData.getProperty(CURRENTLY_OPEN).split(",");
+			String[] blacklistUnvalidated = saveData.getProperty(BLACKLIST).split(",");
+			for (String s : currentlyOpenUnvalidated) {
+				s = s.trim().toUpperCase(); // trim whitespace and uppercase
+				validateCurrencyPair(s); // throws RuntimeException if invalid
+
+				// add to currentlyOpen
+				currentlyOpen.add(s);
+			}
+			for (String s : blacklistUnvalidated) {
+				s = s.trim().toUpperCase();
+				validateCurrencyPair(s);
+
+				if (currentlyOpen.contains(s)) {
+					throw new RuntimeException("currency pair " + s + " is in both currentlyOpen and blacklist");
+				}
+
+				// add to blacklist
+				blacklist.add(s);
+			}
+		} catch (IOException ioe) {
+			System.err.println("Error loading smartcopy.properties save data: " + ioe);
+			ioe.printStackTrace(System.err);
+			System.exit(0);
+		} catch (RuntimeException re) {
+			System.err.println("Error loading smartcopy.properties save data, corruption: " + re);
+			re.printStackTrace(System.err);
+			System.exit(0);
+		}
+	}
+
+	/**
+	 * Shuts down the strategy. Saves currentlyOpen and blacklist data.
+	 */
+	@Override
+	public final void shutdown() {
+		Properties props = new Properties();
+		String c = "";
+		String b = "";
+		for (String s : currentlyOpen) {
+			if (c.length() > 0) {
+				c += ",";
+			}
+			c += s;
+		}
+		for (String s : blacklist) {
+			if (b.length() > 0) {
+				b += ",";
+			}
+			b += s;
+		}
+		props.put(CURRENTLY_OPEN, c);
+		props.put(BLACKLIST, b);
+
+		// save to file
+		try {
+			FileOutputStream fos = new FileOutputStream(SMART_COPY_FILE);
+			props.store(fos, null);
+			fos.close();
+		} catch (IOException ioe) {
+			System.err.println("Unable to save SmartCopy strategy data: " + ioe);
+			ioe.printStackTrace(System.err);
+		}
+	}
+
+	private void validateCurrencyPair(String s) {
+		if (s.length() != 7 || !s.contains("_") || s.split("_").length != 2 || s.split("_")[0].length() != 3) {
+			throw new RuntimeException("invalid currency pair: " + s);
+		}
 	}
 
 	/**
@@ -83,6 +165,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 			// trying to open trade, determine if fresh trade, or it is on blacklist or local-currently-open list
 			if (blacklist.contains(pair)) {
 				// pair is currently blacklisted, show notification message and do nothing
+				// even if trade has been re-entered as per re-entry rules, the currency pair will still stay on blacklist here
 				System.out.println("[SmartCopyStrategy] C2 added to position for pair " + pair + ", which is blacklisted. No action taken.");
 				return;
 			}
@@ -91,7 +174,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 				List<JSONObject> trades = getTrades(pair);
 				if (trades.size() > 0) { // not yet stopped out
 					// calculate new stop-loss and determine whether opening this additional position + adjusting all
-					// stop losses is worth it
+					// stop losses if worth it
 					// @TODO
 				} else { // the pair has been stopped out: remove from currentlyOpen and add to blacklist
 					System.out.println("[SmartCopyStrategy] C2 added to position for pair " + pair +
@@ -106,7 +189,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 			// not in blacklist AND not in currentlyOpen - this is a completely fresh trade, open normally
 			// diff = difference between C2's opening price and oanda's current price, in pips
 			if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && curPrice < oprice) || (side.equals(SELL) && curPrice > oprice)) {
-				// pip difference is at most negative 5 pips (in direction of our favour)
+				// pip difference is at most negative 1 pip (for us)
 				// try to place an order
 
 				// get our position sizing
@@ -121,6 +204,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 			}
 		} else {
 			// try to close all positions for the pair instantly
+			// no checks required - even manually re-entered trades should be closed according to C2 strategy
 
 			// get all trades for this pair
 			ArrayList<JSONObject> list = getTrades(pair); // json of all currently open trades for this pair
@@ -128,6 +212,13 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 				// close every trade returned for this pair
 				long tradeId = trade.getLong(ID);
 				closeTrade(tradeId);
+			}
+			// get all orders for this pair
+			ArrayList<JSONObject> olist = getOrders(pair);
+			for (JSONObject order : olist) {
+				// close every order returned for this pair
+				long orderId = order.getLong(ID);
+				deleteOrder(orderId);
 			}
 
 			// remove the pair from the blacklist and currentlyOpen, if present

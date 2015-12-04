@@ -220,6 +220,33 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	}
 
 	/**
+	 * Creates a limit order. Expiry is set at 24 hours (although they are deleted upon C2 close order, if before that).
+	 *
+	 * @param side the side (buy or sell)
+	 * @param psize position size in units
+	 * @param pair currency pair
+	 * @param bound the bound at which to execute the trade
+	 * @return the id of the order that was just opened
+	 */
+	public long createOrder(String side, int psize, String pair, double bound) {
+		// UTC date time string representing 24 hours
+		String expire = ""; // @TODO
+
+		HashMap<String, String> props = new LinkedHashMap<String, String>();
+		props.put(INSTRUMENT, pair);
+		props.put(UNITS, Integer.toString(psize));
+		props.put(SIDE, side);
+		props.put(TYPE, LIMIT);
+		props.put(EXPIRY, expire);
+		props.put(PRICE, Double.toString(bound));
+		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/orders", Connector.POST, OANDA_API_KEY, props);
+
+		String response = con.getResponse();
+		JSONObject json = new JSONObject(response).getJSONObject("orderOpened");
+		return json.getLong("id");
+	}
+
+	/**
 	 * Gets all open trades for the given currency pair. (Max is 500 but this should never be reached unless some
 	 * crazy stupid shit is being done...)
 	 *
@@ -263,6 +290,13 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		String response = con.getResponse();
 		// @TODO check response to make sure close was successful
 		// @TODO verify that this method works
+	}
+
+	/**
+	 * Alerts this strategy that the application is shutting down.
+	 */
+	public void shutdown() {
+		// do nothing
 	}
 
 	/**

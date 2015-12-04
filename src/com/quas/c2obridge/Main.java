@@ -79,6 +79,9 @@ public class Main {
 		String line;
 		while ((line = reader.readLine()) != null) {
 			if (line.equals("quit") || line.equals("exit")) {
+				System.out.println("---------------------");
+				System.out.println("Shutting down:");
+				app.shutdown();
 				System.out.println("Shutdown successfully");
 				System.exit(0);
 			} else {

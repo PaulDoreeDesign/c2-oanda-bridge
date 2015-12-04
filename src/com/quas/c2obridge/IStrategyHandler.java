@@ -47,11 +47,14 @@ public interface IStrategyHandler {
 	public static final String BALANCE = "balance";
 	public static final String STOP_LOSS = "stopLoss";
 	public static final String TRAILING_STOP = "trailingStop";
+	public static final String EXPIRY = "expiry";
+	public static final String PRICE = "price";
 
 	/**
 	 * Constants which represent values to be sent as property values
 	 */
 	public static final String MARKET = "market";
+	public static final String LIMIT = "limit";
 
 	/**
 	 * Handles the given newly-received message.

@@ -32,6 +32,7 @@ public class C2OBridge {
 	/** Account IDs for respective strategies */
 	private static final int COPY_ACC_ID;
 	private static final int REVERSE_ACC_ID;
+	private static final int SMART_COPY_ACC_ID;
 
 	// load from props file
 	static {
@@ -49,6 +50,7 @@ public class C2OBridge {
 
 		COPY_ACC_ID = Integer.parseInt(oandaProps.getProperty("COPY_ACC_ID"));
 		REVERSE_ACC_ID = Integer.parseInt(oandaProps.getProperty("REVERSE_ACC_ID"));
+		SMART_COPY_ACC_ID = Integer.parseInt(oandaProps.getProperty("SMART_COPY_ACC_ID"));
 	}
 
 	/**
@@ -61,10 +63,21 @@ public class C2OBridge {
 
 		// initialise the applicable strategies and their account ids
 		this.strategyHandlers = new ArrayList<StrategyHandler>();
-		// copy strategy
+		// smart copy strategy
+		strategyHandlers.add(new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
+		// exact copy strategy
 		strategyHandlers.add(new CopyStrategyHandler(COPY_ACC_ID));
 		// reverse strategy
 		strategyHandlers.add(new ReverseStrategyHandler(REVERSE_ACC_ID));
+	}
+
+	/**
+	 * Alerts all strategies of shutdown.
+	 */
+	public void shutdown() {
+		for (StrategyHandler strategy : strategyHandlers) {
+			strategy.shutdown();
+		}
 	}
 
 	public void readMessages() {

@@ -44,8 +44,9 @@ public class CopyStrategyHandler extends StrategyHandler {
 				// pip difference is at most negative 5 pips (in direction of our favour)
 				// try to place an order
 
+				double accountBalance = getAccountBalance();
 				// get our position sizing
-				int oandaPsize = convert(psize) * POS_SIZE_MULTIPLIER;
+				int oandaPsize = convert(psize, accountBalance) * POS_SIZE_MULTIPLIER;
 				// actually place the trade
 				openTrade(side, oandaPsize, pair);
 			} else {

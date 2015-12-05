@@ -55,7 +55,7 @@ public class Main {
 		Properties props = new Properties();
 		props.load(new FileInputStream(new File("smtp.properties")));
 		props.setProperty("mail.imaps.usesocketchannels", "true");
-		Session session = Session.getDefaultInstance(props, null);
+		Session session = Session.getInstance(props, null);
 		Store store = session.getStore("imaps");
 		store.connect("smtp.gmail.com", EMAIL + "@gmail.com", PASSWORD);
 

@@ -90,6 +90,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 			String[] currentlyOpenUnvalidated = saveData.getProperty(CURRENTLY_OPEN).split(",");
 			String[] blacklistUnvalidated = saveData.getProperty(BLACKLIST).split(",");
 			for (String s : currentlyOpenUnvalidated) {
+				if (s.equals("")) continue;
 				s = s.trim().toUpperCase(); // trim whitespace and uppercase
 				validateCurrencyPair(s); // throws RuntimeException if invalid
 
@@ -97,6 +98,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 				currentlyOpen.add(s);
 			}
 			for (String s : blacklistUnvalidated) {
+				if (s.equals("")) continue;
 				s = s.trim().toUpperCase();
 				validateCurrencyPair(s);
 

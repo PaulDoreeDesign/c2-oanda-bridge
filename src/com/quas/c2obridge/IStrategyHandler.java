@@ -9,6 +9,9 @@ import java.io.IOException;
  */
 public interface IStrategyHandler {
 
+	/** Our Oanda accounts' currency */
+	public static final String ACC_CURRENCY = "AUD";
+
 	/** Acceptable difference between C2's open price and current Oanda price, in pips */
 	public static final int MAX_PIP_DIFF = 5; // 5 pips
 
@@ -27,6 +30,7 @@ public interface IStrategyHandler {
 	 */
 	public static final String AUD_USD = "AUD_USD";
 	public static final String JPY = "JPY";
+	public static final String AUD = "AUD";
 
 	/**
 	 * Constants which represent values extracted from the emails.
@@ -55,6 +59,11 @@ public interface IStrategyHandler {
 	 */
 	public static final String MARKET = "market";
 	public static final String LIMIT = "limit";
+
+	/**
+	 * Flag passed to modifyTrade method to signify no trailing stop should be placed.
+	 */
+	public static final int NO_TRAILING_STOP = -1;
 
 	/**
 	 * Handles the given newly-received message.

@@ -7,7 +7,10 @@ import org.jsoup.Jsoup;
 import javax.mail.Message;
 import javax.mail.MessagingException;
 import java.io.*;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 
@@ -128,11 +131,14 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	 * Takes into account the difference in account sizes, and currencies.
 	 *
 	 * @param units the number of units placed by the C2 trader
+	 * @param accountBalanceAUD the current balance of our account on Oanda
 	 * @return number of units to place via Oanda API at a 1:1 ratio
+	 *
+	 * @TODO make this method independent of account currency type
 	 */
-	public int convert(int units) {
+	public int convert(int units, double accountBalanceAUD) {
 		double audUsdPrice = getOandaPrice(BUY, AUD_USD);
-		double accountBalance = getAccountBalance() * audUsdPrice; // multiply by AUDUSD price to get our account balance in USD
+		double accountBalance = accountBalanceAUD * audUsdPrice; // multiply by AUDUSD price to get our account balance in USD
 		double times = C2_PROVIDER_NET_WORTH / accountBalance; // the no. of times that the C2 account is larger than ours
 
 		return (int) (units / times);
@@ -149,14 +155,26 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	public double getOandaPrice(String side, String pair) {
 		Connector con = new Connector(OANDA_API_URL + "/v1/prices?instruments=" + pair, Connector.GET, OANDA_API_KEY);
 		String response = con.getResponse();
-
 		JSONObject json = new JSONObject(response).getJSONArray("prices").getJSONObject(0);
-
 		double ask = json.getDouble("ask");
 		double bid = json.getDouble("bid");
 		double ret = (side == BUY) ? ask : bid;
-
 		return ret;
+	}
+
+	/**
+	 * Given a currency pair, checks with Oanda's REST API and returns the median price between the bid and ask prices.
+	 *
+	 * @param pair the currency pair to check
+	 * @return the median price between the bid and ask prices
+	 */
+	public double getMedianOandaPrice(String pair) {
+		Connector con = new Connector(OANDA_API_URL + "/v1/prices?instruments=" + pair, Connector.GET, OANDA_API_KEY);
+		String response = con.getResponse();
+		JSONObject json = new JSONObject(response).getJSONArray("prices").getJSONObject(0);
+		double ask = json.getDouble("ask");
+		double bid = json.getDouble("bid");
+		return (ask + bid) / 2;
 	}
 
 	/**
@@ -230,7 +248,20 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	 */
 	public long createOrder(String side, int psize, String pair, double bound) {
 		// UTC date time string representing 24 hours
-		String expire = ""; // @TODO
+		DateFormat yearFormat = new SimpleDateFormat("yyyy");
+		DateFormat monthFormat = new SimpleDateFormat("MM");
+		Date curDate = new Date();
+		int year = Integer.parseInt(yearFormat.format(curDate));
+		int month = Integer.parseInt(monthFormat.format(curDate));
+		// increment month by 1
+		month++;
+		if (month > 12) {
+			year++;
+			month -= 12;
+		}
+		String monthString = Integer.toString(month);
+		if (monthString.length() == 1) monthString = "0" + monthString;
+		String expire = year + "-" + monthString + "-06T12:00:00Z"; // just always do a month in advance
 
 		HashMap<String, String> props = new LinkedHashMap<String, String>();
 		props.put(INSTRUMENT, pair);
@@ -251,11 +282,27 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	 * crazy stupid shit is being done...)
 	 *
 	 * @param pair the currency pair to search for
-	 * @return ArrayList<JSONObject> arraylist of JSONObjects that were in the response
+	 * @return arraylist of JSONObjects that were in the response
 	 */
 	public ArrayList<JSONObject> getTrades(String pair) {
 		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/trades?instrument=" + pair + "&count=500", Connector.GET, OANDA_API_KEY);
 		JSONArray arr = new JSONObject(con.getResponse()).getJSONArray("trades");
+		ArrayList<JSONObject> list = new ArrayList<JSONObject>();
+		for (int i = 0; i < arr.length(); i++) {
+			list.add(arr.getJSONObject(i));
+		}
+		return list;
+	}
+
+	/**
+	 * Gets all pending orders on Oanda for the given currency pair.
+	 *
+	 * @param pair the currency pair to search for
+	 * @return arraylist of JSONObjects that were in the response
+	 */
+	public ArrayList<JSONObject> getOrders(String pair) {
+		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/orders?instrument=" + pair + "&count=500", Connector.GET, OANDA_API_KEY);
+		JSONArray arr = new JSONObject(con.getResponse()).getJSONArray("orders");
 		ArrayList<JSONObject> list = new ArrayList<JSONObject>();
 		for (int i = 0; i < arr.length(); i++) {
 			list.add(arr.getJSONObject(i));
@@ -276,6 +323,18 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	}
 
 	/**
+	 * Submits a request to Oanda's REST API to delete the order with the given id.
+	 *
+	 * @param orderId
+	 */
+	public void deleteOrder(long orderId) {
+		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/orders/" + orderId, Connector.DELETE, OANDA_API_KEY);
+		String response = con.getResponse();
+		// @TODO check response to make sure delete was successful
+		// System.out.println(response);
+	}
+
+	/**
 	 * Modifies an existing trade, giving it a stop loss and a trailing stop.
 	 *
 	 * @param tradeId the id of the trade to modify
@@ -285,11 +344,63 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	public void modifyTrade(long tradeId, double stopLoss, double trailingStop) {
 		HashMap<String, String> params = new LinkedHashMap<String, String>();
 		params.put(STOP_LOSS, Double.toString(stopLoss));
-		params.put(TRAILING_STOP, Double.toString(trailingStop));
+		if (trailingStop != NO_TRAILING_STOP) {
+			params.put(TRAILING_STOP, Double.toString(trailingStop));
+		}
 		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/trades/" + tradeId, Connector.PATCH, OANDA_API_KEY, params);
 		String response = con.getResponse();
 		// @TODO check response to make sure close was successful
 		// @TODO verify that this method works
+	}
+
+	/**
+	 * Modifies an existing order, giving it a stop loss, and a trailing stop (if the param isn't NO_TRAILING_STOP).
+	 *
+	 * @param orderId the id of the order to modify
+	 * @param stopLoss initial stop loss in pips
+	 * @param trailingStop trailing stop loss in pips, or NO_TRAILING_STOP
+	 */
+	public void modifyOrder(long orderId, double stopLoss, double trailingStop) {
+		HashMap<String, String> params = new LinkedHashMap<String, String>();
+		params.put(STOP_LOSS, Double.toString(stopLoss));
+		if (trailingStop != NO_TRAILING_STOP) {
+			params.put(TRAILING_STOP, Double.toString(trailingStop));
+		}
+		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/orders/" + orderId, Connector.PATCH, OANDA_API_KEY, params);
+		String response = con.getResponse();
+		// @TODO check response to make sure close was successful
+		// @TODO verify that this method works
+	}
+
+	/**
+	 * Calculates how much each pip of the given pair is worth, in terms of our account's currency ACC_CURRENCY.
+	 *
+	 * @param pair the currency pair of which we are trying to calculate the per-pip value in terms of our account's currency
+	 * @return the amount of our account's currency each pip of the given pair is worth
+	 */
+	public double getAccCurrencyPerPip(String pair) {
+		String[] sides = pair.split("_");
+		if (sides.length != 2) throw new RuntimeException(pair + " split over '_' length is " + sides.length);
+
+		String base = sides[0];
+		// get currency exchange rate for the pair
+		double pairRate = getMedianOandaPrice(pair);
+		double pip = 0.0001; // value of one pip
+		if (pair.contains(JPY)) pip = 0.01; // JPY pairs = pip is 0.01
+
+		double pipValueBase = pip / pairRate; // value per pip in terms of the base currency
+
+		// find value of currency pair accountCurrency/baseCurrency
+		String accBase = CurrencyPairs.getPair(ACC_CURRENCY, base);
+		String[] accBaseSplit = accBase.split("_");
+		double accBasePrice = getMedianOandaPrice(accBase);
+		double ret;
+		if (ACC_CURRENCY.equals(accBaseSplit[0])) { // acc currency is base of accBase pair
+			ret = pipValueBase / accBasePrice;
+		} else { // acc currency is quote of accBase pair
+			ret = pipValueBase * accBasePrice;
+		}
+		return ret;
 	}
 
 	/**

@@ -51,8 +51,9 @@ public class ReverseStrategyHandler extends StrategyHandler {
 			if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && curPrice < oprice) || (side.equals(SELL) && curPrice > oprice)) {
 				// pip difference is at most positive 5 pips (in direction of C2's favour), so try to place an order
 
+				double balance =getAccountBalance();
 				// get our position sizing
-				int oandaPsize = convert(psize) * POS_SIZE_MULTIPLIER;
+				int oandaPsize = convert(psize, balance) * POS_SIZE_MULTIPLIER;
 				// actually place the trade
 				long id = openTrade(side, oandaPsize, pair); // id = id of the trade that is returned once it is placed
 

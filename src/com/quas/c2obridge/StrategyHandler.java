@@ -36,38 +36,6 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	}
 
 	/**
-	 * Checks that the extracted important piece of the email is valid.
-	 *
-	 * If not valid, throws RuntimeException and the program will terminate.
-	 *
-	 * @param parts the extracted string
-	 */
-	public void verify(String[] parts) {
-		if (parts.length != 21) throw new RuntimeException("parts.length is invalid: " + parts.length);
-		Integer.parseInt(parts[0]); // NumberFormatException if index 0 isn't a valid id
-		// if (!parts[1].matches()) throw new RuntimeException("Invalid date: " + parts[1]); @TODO: regex match
-		// 1,2 @TODO: check date and time are 16 hours before now (if sydney)
-		if (!parts[3].equals("ET")) throw new RuntimeException("parts[3] isn't 'ET': " + parts[3]);
-		// 4, 5, 6, 7 are the actions (buy/sell) to (go/close) (short/long)
-		int size = Integer.parseInt(parts[8].replace(",", "")); // NumberFormatException if can't parse after removing comma
-		if (size % 10000 != 0) throw new RuntimeException("Invalid raw position size: " + size);
-		if (!parts[9].contains("/") || parts[9].length() != 7) throw new RuntimeException("invalid currency pair: " + parts[9]);
-		if (!parts[10].equals("market") || !parts[11].equals("order")) throw new RuntimeException("not 'market order': " + parts[10] + " " + parts[11]);
-
-		String combined = parts[12] + " " + parts[13] + " " + parts[14] + " " + parts[15] + " " + parts[16];
-		if (!combined.equals("Good Til Cancel traded at")) throw new RuntimeException ("not 'Good Til Cancel traded at': " + combined);
-
-		// price opened at by c2
-		Double.parseDouble(parts[17]); // NumberFormatException if this number isn't parsable as a double
-
-		if (!parts[18].equals(parts[1]) || !parts[19].equals(parts[2])) {
-			throw new RuntimeException("dates aren't equal: " + parts[18] + " != " + parts[1] + ", " + parts[19] + " != " + parts[2]);
-		}
-
-		if (!parts[20].equals("ET")) throw new RuntimeException("parts[20] isn't ET: " + parts[20]);
-	}
-
-	/**
 	 * Extracts the relevant information from the newly-received message, and calls the implementing strategy
 	 * handler.
 	 *
@@ -91,28 +59,68 @@ public abstract class StrategyHandler implements IStrategyHandler {
 			// System.out.println(relevant);
 			String[] parts = relevant.trim().split("\\s+");
 
-			if (parts.length == 22) { // get rid of "position" at position 8
-				String[] partsTemp = new String[parts.length - 1];
-				for (int i = 0; i < parts.length; i++) {
-					if (i == 8) continue;
-					if (i > 8) {
-						partsTemp[i - 1] = parts[i];
-					} else {
-						partsTemp[i] = parts[i];
-					}
+			String action = null;
+			String side = null;
+			int psize = 0;
+			String pair = null;
+			double oprice = 0;
+
+			try {
+				int i = 0;
+				Integer.parseInt(parts[i]);
+				i += 3;
+				if (!parts[i].equals("ET")) throw new RuntimeException("'ET' not in expected position, got " + parts[i] + " instead");
+				i++;
+
+				String actionLine = "";
+
+				while (!parts[i].contains(",")) {
+					actionLine += parts[i] + " ";
+					i++;
 				}
-				parts = partsTemp;
+				String[] actionsSplit = actionLine.split(" ");
+				if (actionsSplit.length == 4 || actionsSplit.length == 5) {
+					side = actionsSplit[0].toLowerCase();
+					action = (actionsSplit[2].equals("go") || actionsSplit[2].equals("open")) ? OPEN : CLOSE;
+				} else {
+					throw new RuntimeException("actionsSplit.length not 4 or 5. length = " + actionsSplit.length + ", actionLine = " + actionLine);
+				}
+
+				psize = Integer.parseInt(parts[i].replace(",", ""));
+				i++;
+				pair = parts[i].replace("/", "_");
+				i++;
+
+				String marketOrder = "";
+				marketOrder += parts[i] + " ";
+				i++;
+				marketOrder += parts[i];
+				i++;
+				if (!marketOrder.equals("market order")) throw new RuntimeException("marketOrder invalid: " + marketOrder);
+
+				String goodTil = "";
+				while (!parts[i].equals("traded")) {
+					if (!goodTil.equals("")) goodTil += " ";
+					goodTil += parts[i];
+					i++;
+				}
+				if (!goodTil.equals("Good Til Cancel") && !goodTil.equals("day order")) {
+					throw new RuntimeException("Invalid value for goodTil: " + goodTil);
+				}
+
+				if (!parts[i].equals("traded")) throw new RuntimeException("expected 'traded', got: " + parts[i]);
+				i++;
+				if (!parts[i].equals("at")) throw new RuntimeException("expected 'at', got: " + parts[i]);
+				i++;
+
+				oprice = Double.parseDouble(parts[i]);
+
+
+			} catch (RuntimeException re) {
+				System.err.println("Extraction failed, entire line = " + relevant + ", index 0 = " + parts[0]);
+				re.printStackTrace(System.err);
 			}
 
-			verify(parts);
-
-			// String date = parts[1];
-			// String time = parts[2];
-			String action = (parts[6].equals("go") || parts[6].equals("open")) ? OPEN : CLOSE;
-			String side = parts[4].toLowerCase();
-			int psize = Integer.parseInt(parts[8].replace(",", "")); // units
-			String pair = parts[9].replace("/", "_");
-			double oprice = Double.parseDouble(parts[17]); // opening price by C2
 			//System.out.println("date = " + date + ", time = " + time + ", action = " + action + ", type = " + type +
 			//	", psize = " + psize + ", pair = " + pair + ", oprice = " + oprice + "\n----");
 

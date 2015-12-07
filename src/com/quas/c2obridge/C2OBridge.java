@@ -16,9 +16,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
+ * Application root
+ *
  * Created by Quasar on 2/12/2015.
  */
 public class C2OBridge {
+
+	/**
+	 * Debug mode = read all emails currently in the inbox and treat as new emails
+	 * Non-debug mode = if there are any emails in inbox upon program start, terminate with warning message
+	 */
+	private static final boolean DEBUG_MODE = false;
 
 	/** The inbox folder */
 	private Folder inbox;
@@ -81,7 +89,9 @@ public class C2OBridge {
 	}
 
 	public void readMessages() {
-		System.out.println("Sweeping inbox...");
+		if (DEBUG_MODE) System.out.println("Sweeping inbox...");
+		else System.out.println("[ALERT] Running in production mode!");
+
 		try {
 			inbox.open(Folder.READ_WRITE);
 
@@ -89,24 +99,25 @@ public class C2OBridge {
 			// quit to force manual checking of inbox, if so
 			Message[] messages = inbox.getMessages();
 			for (Message message : messages) {
-				/*
-				try {
-					for (StrategyHandler strategy : strategyHandlers) {
-						strategy.handleMessage(message);
-						sleep(1000);
+				if (DEBUG_MODE) {
+					try {
+						for (StrategyHandler strategy : strategyHandlers) {
+							strategy.handleMessage(message);
+							sleep(1000);
+						}
+					} catch (Exception e) {
+						System.err.println("ERROR: " + e);
+						e.printStackTrace(System.err);
 					}
-				} catch (Exception e) {
-					System.err.println("ERROR: " + e);
-					e.printStackTrace(System.err);
-				}
-				*/
-				String subject = message.getSubject();
-				if (subject.equals(IStrategyHandler.SUBJECT_FIND)) {
-					System.out.println("WARNING: new unhandled emails in inbox. force-quitting, check inbox manually...");
-					System.exit(0);
+				} else {
+					String subject = message.getSubject();
+					if (subject.equals(IStrategyHandler.SUBJECT_FIND)) {
+						System.out.println("WARNING: new unhandled emails in inbox. force-quitting, check inbox manually...");
+						System.exit(0);
+					}
+					System.out.println("Inbox checked successfully with no issues.");
 				}
 			}
-			System.out.println("Inbox checked successfully with no issues.");
 		} catch (MessagingException me) {
 			System.err.println("Error reading inbox messages: " + me);
 			me.printStackTrace(System.err);

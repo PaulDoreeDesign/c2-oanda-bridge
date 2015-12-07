@@ -39,10 +39,10 @@ import java.util.*;
 public class SmartCopyStrategyHandler extends StrategyHandler {
 
 	/** Stop-loss when C2's account hits this PERCENTAGE drawdown */
-	private static final double C2_STOPLOSS_PERCENT = 0.6;
+	private static final double C2_STOPLOSS_PERCENT = 3.33333;
 
 	/** Multiplier applied against C2 position sizing */
-	private static final int POS_SIZE_MULTIPLIER = 6;
+	private static final int POS_SIZE_MULTIPLIER = 3;
 
 	/** Percentage of our account risked per trade, equivalent to C2_STOPLOSS_PERCENT * POS_SIZE_MULTIPLIER */
 	private static final double ACC_STOPLOSS_PERCENT = C2_STOPLOSS_PERCENT * POS_SIZE_MULTIPLIER;
@@ -180,9 +180,6 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 		// get our position sizing
 		int oandaPsize = convert(psize, accountBalance) * POS_SIZE_MULTIPLIER;
 
-		System.out.println("From SmartCopyStrategyHandler.handleInfo(): MAX_PIP_DIFF should be overridden to be 1: " +
-			MAX_PIP_DIFF);
-
 		if (action.equals(OPEN)) {
 			// trying to open trade, determine if fresh trade, or it is on blacklist or local-currently-open list
 			if (blacklist.contains(pair)) {
@@ -259,7 +256,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 			// calculate appropriate stoploss for the trade
 			double accCurrencyPerPip = getAccCurrencyPerPip(pair);
 			double accCurrencyPerPipForTrade = accCurrencyPerPip * oandaPsize;
-			int stopLossPips = (int) (accountBalance * ACC_STOPLOSS_PERCENT / accCurrencyPerPipForTrade);
+			int stopLossPips = (int) (accountBalance * (ACC_STOPLOSS_PERCENT / 100D) / accCurrencyPerPipForTrade);
 			double stopLossPrice = pipsToPrice(pair, stopLossPips);
 
 			// not in blacklist or currentlyOpen - this is a completely fresh trade, open normally
@@ -280,6 +277,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 				double stopLoss = bound; // stopLoss is relative to bound, not curPrice, for limit orders
 				if (side.equals(BUY)) stopLoss -= stopLossPrice;
 				else stopLoss += stopLossPrice;
+				System.out.println("curPrice = " + curPrice + ", oprice = " + oprice + ", bound = " + bound + ", stopLoss = " + stopLoss + ", stopLossPips = " + stopLossPips);
 				// place the order
 				long orderId = createOrder(side, oandaPsize, pair, bound);
 				// modify the order and give it appropriate stop loss

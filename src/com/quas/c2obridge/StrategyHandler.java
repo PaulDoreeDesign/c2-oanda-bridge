@@ -211,6 +211,18 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	}
 
 	/**
+	 * Converts the given price to pips. (0.0001 currency = 1 pip for most currencies, 0.01 currency = 1 pip for JPY currencies)
+	 *
+	 * @param pair the currency pair
+	 * @param price the price
+	 * @return the number of pips
+	 */
+	public double priceToPips(String pair, double price) {
+		if (pair.contains(JPY)) return price * 100;
+		else return price * 10000;
+	}
+
+	/**
 	 * Gets the balance of this account.
 	 *
 	 * @return the balance

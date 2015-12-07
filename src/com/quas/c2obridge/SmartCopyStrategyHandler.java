@@ -55,6 +55,10 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 	 * instant open was missed
 	 */
 	private static final int LIMIT_ORDER_PIPS_DIFF = 5;
+	/**
+	 * Number of pips that must separate the current price from new stop loss when making an additional trade.
+	 */
+	private static final int ADD_TRADE_MIN_GAP = 10;
 
 	/** Smart copy file */
 	private static final String SMART_COPY_FILE = "smartcopy.properties";
@@ -192,48 +196,65 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 				// determine if the pair is still open on Oanda, or if it has been stopped out
 				List<JSONObject> trades = getTrades(pair);
 				List<JSONObject> orders = getOrders(pair);
-				if (trades.size() > 0) { // trade was placed and not yet stopped out
-					if (trades.size() == 1) {
-						// this is the first addition - we can try give this a shot
-						JSONObject t = trades.get(0);
-						double tOpenPrice = t.getDouble(PRICE);
-						double tStopLoss = t.getDouble(STOP_LOSS);
-						int tPsize = t.getInt(UNITS);
+				if (trades.size() > 0) { // trade(s) placed and not yet stopped out
 
-						// never add to winning positions
-						if ((side.equals(BUY) && curPrice > tOpenPrice) || (side.equals(SELL) && curPrice < tOpenPrice)) {
-							return;
+					// make sure the stop losses of all the trades are the same
+					double tsl = -1;
+					for (JSONObject t : trades) {
+						if (tsl == -1) tsl = t.getDouble(STOP_LOSS);
+						if (tsl != t.getDouble(STOP_LOSS)) throw new RuntimeException("Not all stop losses of pair " + pair + " are the same");
+					}
+					double prevStopLoss = tsl;
+					boolean slWithinLimits = false; // flag for whether the stop loss is small enough for our goal risk percentage
+					double onePip = pipsToPrice(pair, 1);
+					do {
+						tsl -= onePip; // decrement tsl by 1 pip at a time
+						double accCurrencyPerPip = getAccCurrencyPerPip(pair);
+						// calculate total risk of all the existing trades + new trade if all their stop losses are set to tsl
+						double totalRiskPrice = 0;
+						for (JSONObject t : trades) {
+							int tUnits = t.getInt(UNITS);
+							double accCurrencyPerPipForTrade = accCurrencyPerPip * tUnits;
+							// figure out number of pips for this trade with the stop loss at 'tsl'
+							double newStopLossPriceDiff = Math.abs(t.getDouble(PRICE) - curPrice);
+							double newStopLossPips = priceToPips(pair, newStopLossPriceDiff);
+							double amount = accCurrencyPerPipForTrade * newStopLossPips;
+							totalRiskPrice += amount;
 						}
-						// don't bother adding to position if stop loss is less than 10 pips away
-						double priceToStopLoss = Math.abs(curPrice - tStopLoss);
-						double pipsToStopPrice = (pair.contains(JPY)) ? priceToStopLoss * 100 : priceToStopLoss * 10000 ;
-						if (pipsToStopPrice < 10) {
-							return;
+						double totalRiskPercentage = totalRiskPrice / accountBalance * 100;
+						if (totalRiskPercentage <= ACC_STOPLOSS_PERCENT) {
+							slWithinLimits = true;
 						}
+					} while (!slWithinLimits);
 
-						double portionLost = Math.abs(tOpenPrice - curPrice) / Math.abs(tOpenPrice - tStopLoss);
-						double riskRemaining = 1 - portionLost; // % of the original 3.6% risk that remains from here
-						double psizeIncreasePercent = ((double) (tPsize + psize)) / tPsize - 1; // % of original position size increase
-						double riskPercentIncrease = riskRemaining * psizeIncreasePercent * ACC_STOPLOSS_PERCENT; // % of risk increase as per account
-
-						if (riskPercentIncrease > (ACC_STOPLOSS_PERCENT * 0.4D)) { // at most, 3.6% -> 5.0%, or 40% increase in risk
-							// bring position size down to this maximal risk increase
-							double decrease = (ACC_STOPLOSS_PERCENT / 0.4D) / riskPercentIncrease;
-							oandaPsize *= decrease;
+					// check that tsl does not clash with any existing trades
+					boolean clash = false;
+					for (JSONObject t : trades) {
+						double tslCurPriceDiffPips = priceToPips(pair, Math.abs(curPrice - tsl));
+						if ((side.equals(BUY) && tsl > curPrice) || (side.equals(SELL) && tsl < curPrice) || tslCurPriceDiffPips < ADD_TRADE_MIN_GAP) {
+							clash = true;
+							break;
 						}
-
-						// place the additional trade
-						long tradeId = openTrade(side, oandaPsize, pair);
-						// modify the trade and give it the same stop loss as first trade
-						modifyTrade(tradeId, tStopLoss, NO_TRAILING_STOP);
-
-					} else {
-						// already added to this position, don't do it again (given our small stop-loss range, any further
-						// additions to this currency position will most likely be stopped out very soon anyway)
-						System.out.println("[SmartCopyStrategy] C2 added to position for " + pair +
-								", but we already have 2 open for this pair and are not adding any more.");
 					}
 
+					// if no clash
+					if (!clash) {
+						// modify all existing trades
+						for (JSONObject t : trades) {
+							modifyTrade(t.getLong(ID), tsl, NO_TRAILING_STOP);
+						}
+						// create new trade
+						long newTradeId = openTrade(side, oandaPsize, pair);
+						// modify trade and give it the stop loss
+						modifyTrade(newTradeId, tsl, NO_TRAILING_STOP);
+						// debug message
+						System.out.println("[SmartCopyStrategy] Added to existing position: stop-loss of all trades shifted from " +
+							prevStopLoss + " to " + tsl);
+					} else {
+						// clash, just print debug message and do nothing
+						System.out.println("[SmartCopyStrategy] C2 added to existing position but we couldn't: stop-loss was at " +
+							prevStopLoss + ", would needed to have been moved to " + tsl + " but couldn't.");
+					}
 				} else if (orders.size() > 0) { // order was placed and is still there, this should rarely ever happen...
 					System.out.println("[SmartCopyStrategy] C2 added to position but our limit order hasn't even popped. Weird! pair = " + pair);
 					// don't do anything else, this is a very rare and strange situation: wait for manual intervention
@@ -277,7 +298,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 				double stopLoss = bound; // stopLoss is relative to bound, not curPrice, for limit orders
 				if (side.equals(BUY)) stopLoss -= stopLossPrice;
 				else stopLoss += stopLossPrice;
-				System.out.println("curPrice = " + curPrice + ", oprice = " + oprice + ", bound = " + bound + ", stopLoss = " + stopLoss + ", stopLossPips = " + stopLossPips);
+				// System.out.println("curPrice = " + curPrice + ", oprice = " + oprice + ", bound = " + bound + ", stopLoss = " + stopLoss + ", stopLossPips = " + stopLossPips);
 				// place the order
 				long orderId = createOrder(side, oandaPsize, pair, bound);
 				// modify the order and give it appropriate stop loss

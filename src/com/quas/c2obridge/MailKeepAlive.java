@@ -1,10 +1,13 @@
 package com.quas.c2obridge;
 
+import com.sun.mail.iap.ConnectionException;
 import com.sun.mail.iap.ProtocolException;
 import com.sun.mail.imap.IMAPFolder;
 import com.sun.mail.imap.protocol.IMAPProtocol;
 
+import javax.mail.Folder;
 import javax.mail.MessagingException;
+import javax.mail.Store;
 
 /**
  * Runnable used to keep alive the connection to the IMAP server
@@ -28,13 +31,61 @@ public class MailKeepAlive implements Runnable {
 				Thread.sleep(KEEP_ALIVE_FREQ);
 
 				// Perform a NOOP just to keep alive the connection
-				System.out.print(Main.getCurrentMinute() + " ");
+				String minute = Main.getCurrentMinute();
+				int minuteInt = Integer.parseInt(minute);
+				if (minuteInt % 10 == 0) {
+					System.out.print("NOOP'd at " + Main.getCurrentTime() + ". ");
+					if (minuteInt % 60 == 0) System.out.println();
+				}
 				folder.doCommand(new IMAPFolder.ProtocolCommand() {
 					public Object doCommand(IMAPProtocol p) {
 						try {
 							p.simpleCommand("NOOP", null);
+						} catch (ConnectionException ce) {
+							System.err.println("Encountered ConnectionException: " + ce);
+							System.err.println("Trying to reconnect...");
+							System.out.println("Encountered ConnectionException, trying to reconnect...");
+
+							// stop old idle manager
+							MailSync.getIdleManager().stop();
+							// shutdown old executor service
+							MailSync.shutdownExecutorService();
+							// create new connection
+							boolean connected = false;
+							Store store = MailSync.getStore();
+							while (!connected) {
+								try {
+									store.connect("smtp.gmail.com", Main.EMAIL + "@gmail.com", Main.PASSWORD);
+									connected = true;
+								} catch (MessagingException me) {
+									// sleep and try again
+									try {
+										Thread.sleep(1000);
+									} catch (InterruptedException ie) {
+										// do nothing
+									}
+								}
+							}
+							try {
+								// open inbox
+								IMAPFolder folder = (IMAPFolder) store.getFolder("inbox");
+
+								// set new inbox
+								MailSync.setInbox(folder);
+
+								// set listener on the new inbox
+								C2OBridge.listen(folder);
+
+								System.err.println("Reconnected successfully!");
+								System.out.println("Reconnected successfully!");
+
+							} catch (MessagingException me) {
+								System.err.println("INBOX DOESN'T EXIST, WHAT? " + me);
+								me.printStackTrace(System.err);
+								System.exit(1);
+							}
 						} catch (ProtocolException pe) {
-							System.err.println("Encountered error while keeping alive and sending NOOP: " + pe);
+							System.err.println("Encountered unknown error while keeping alive and sending NOOP: " + pe);
 							pe.printStackTrace(System.err);
 						}
 						return null;

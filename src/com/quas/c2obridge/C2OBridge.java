@@ -28,11 +28,8 @@ public class C2OBridge {
 	 */
 	private static final boolean DEBUG_MODE = false;
 
-	/** The inbox folder */
-	private Folder inbox;
-
 	/** MessageHandler implementation */
-	private List<StrategyHandler> strategyHandlers;
+	private static List<StrategyHandler> strategyHandlers;
 
 	/** Oanda API details */
 	public static final String OANDA_API_KEY;
@@ -63,14 +60,12 @@ public class C2OBridge {
 
 	/**
 	 * Creates an instance of the C2OBridge with the 'inbox' folder from the email account.
-	 *
-	 * @param inbox
 	 */
-	public C2OBridge(Folder inbox) {
-		this.inbox = inbox;
+	public C2OBridge() {
+		IMAPFolder inbox = MailSync.getInbox();
 
 		// initialise the applicable strategies and their account ids
-		this.strategyHandlers = new ArrayList<StrategyHandler>();
+		strategyHandlers = new ArrayList<StrategyHandler>();
 		// smart copy strategy
 		strategyHandlers.add(new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
 		// exact copy strategy
@@ -93,6 +88,7 @@ public class C2OBridge {
 		else System.out.println("[ALERT] Running in production mode!");
 
 		try {
+			IMAPFolder inbox = MailSync.getInbox();
 			inbox.open(Folder.READ_WRITE);
 
 			// check that there aren't any C2 position update emails in inbox
@@ -127,9 +123,11 @@ public class C2OBridge {
 	/**
 	 * Begins a new thread which listens for new emails and handles them accordingly.
 	 */
-	public void listen(Session session, IMAPFolder folder) {
+	public static void listen(final IMAPFolder folder) {
 		try {
 			ExecutorService es = Executors.newCachedThreadPool();
+			MailSync.setExecutorService(es);
+			Session session = MailSync.getSession();
 			final IdleManager idleManager = new IdleManager(session, es);
 
 			// watch inbox for new emails
@@ -137,6 +135,7 @@ public class C2OBridge {
 			folder.addMessageCountListener(new MessageCountAdapter() {
 
 				public void messagesAdded(MessageCountEvent ev) {
+
 					Folder folder = (Folder) ev.getSource();
 					Message[] messages = ev.getMessages();
 
@@ -167,6 +166,8 @@ public class C2OBridge {
 					}
 				}
 			});
+			// set idle manager
+			MailSync.setIdleManager(idleManager);
 			idleManager.watch(folder);
 		} catch (IOException ioe) {
 			System.err.println("Error in C2OBridge.listen(): " + ioe);
@@ -177,7 +178,7 @@ public class C2OBridge {
 		}
 	}
 
-	public void sleep(long millis) {
+	public static void sleep(long millis) {
 		try {
 			Thread.sleep(millis);
 		} catch (InterruptedException ie) {

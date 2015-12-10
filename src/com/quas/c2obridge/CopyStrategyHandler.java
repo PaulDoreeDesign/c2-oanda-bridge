@@ -14,7 +14,7 @@ import java.util.ArrayList;
 public class CopyStrategyHandler extends StrategyHandler {
 
 	/** Multiplier applied against C2 position sizing */
-	private static final int POS_SIZE_MULTIPLIER = 4;
+	private static final int POS_SIZE_MULTIPLIER = 3;
 
 	/**
 	 * Constructor for the copy strategy.

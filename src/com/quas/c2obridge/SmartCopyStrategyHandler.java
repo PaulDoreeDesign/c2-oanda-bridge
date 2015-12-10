@@ -216,7 +216,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 							int tUnits = t.getInt(UNITS);
 							double accCurrencyPerPipForTrade = accCurrencyPerPip * tUnits;
 							// figure out number of pips for this trade with the stop loss at 'tsl'
-							double newStopLossPriceDiff = Math.abs(t.getDouble(PRICE) - curPrice);
+							double newStopLossPriceDiff = Math.abs(t.getDouble(PRICE) - tsl);
 							double newStopLossPips = priceToPips(pair, newStopLossPriceDiff);
 							double amount = accCurrencyPerPipForTrade * newStopLossPips;
 							totalRiskPrice += amount;
@@ -227,14 +227,11 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 						}
 					} while (!slWithinLimits);
 
-					// check that tsl does not clash with any existing trades
+					// check that tsl is not lower than current price
 					boolean clash = false;
-					for (JSONObject t : trades) {
-						double tslCurPriceDiffPips = priceToPips(pair, Math.abs(curPrice - tsl));
-						if ((side.equals(BUY) && tsl > curPrice) || (side.equals(SELL) && tsl < curPrice) || tslCurPriceDiffPips < ADD_TRADE_MIN_GAP) {
-							clash = true;
-							break;
-						}
+					double tslCurPriceDiffPips = priceToPips(pair, Math.abs(curPrice - tsl));
+					if ((side.equals(BUY) && tsl > curPrice) || (side.equals(SELL) && tsl < curPrice) || tslCurPriceDiffPips < ADD_TRADE_MIN_GAP) {
+						clash = true;
 					}
 
 					// if no clash

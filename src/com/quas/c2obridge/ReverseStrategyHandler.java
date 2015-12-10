@@ -13,7 +13,7 @@ import java.io.IOException;
 public class ReverseStrategyHandler extends StrategyHandler {
 
 	/** Multiplier applied against C2 position sizing */
-	private static final int POS_SIZE_MULTIPLIER = 8;
+	private static final int POS_SIZE_MULTIPLIER = 3;
 
 	/** Stop-loss in pips */
 	private static final int STOP_LOSS = 18;

@@ -24,9 +24,9 @@ import java.util.Properties;
 public class Main {
 
 	/** Email address without the @gmail.com domain */
-	private static final String EMAIL;
+	public static final String EMAIL;
 	/** Email password */
-	private static final String PASSWORD;
+	public static final String PASSWORD;
 	// load from props file
 	static {
 		Properties gmailProps = new Properties();
@@ -57,12 +57,15 @@ public class Main {
 		props.setProperty("mail.imaps.usesocketchannels", "true");
 		Session session = Session.getInstance(props, null);
 		Store store = session.getStore("imaps");
+		MailSync.setStore(store);
+		MailSync.setSession(session);
 		store.connect("smtp.gmail.com", EMAIL + "@gmail.com", PASSWORD);
 
 		// open up inbox and pass to C2OBridge instance
 		IMAPFolder inbox = (IMAPFolder) store.getFolder("inbox");
+		MailSync.setInbox(inbox);
 
-		C2OBridge app = new C2OBridge(inbox);
+		C2OBridge app = new C2OBridge();
 		app.readMessages();
 
 		// setup keep-alive thread
@@ -71,7 +74,7 @@ public class Main {
 		System.out.println("Started running keep-alive thread.");
 
 		// listen for new emails
-		app.listen(session, inbox);
+		C2OBridge.listen(inbox);
 
 		// handle input here
 		System.out.println("Setup complete, listening for new emails...");

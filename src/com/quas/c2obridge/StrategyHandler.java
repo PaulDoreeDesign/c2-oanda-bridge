@@ -58,62 +58,83 @@ public abstract class StrategyHandler implements IStrategyHandler {
 			String relevant = body.substring(start, stop);
 			// System.out.println(relevant);
 			String[] parts = relevant.trim().split("\\s+");
+			boolean multi = parts.length > 28; // whether or not this is a multi email
 
-			String action = null;
-			String side = null;
-			int psize = 0;
-			String pair = null;
-			double oprice = 0;
+			String action;
+			String side;
+			int psize;
+			String pair;
+			double oprice;
 
 			try {
+				boolean reachedEnd = false;
 				int i = 0;
-				Integer.parseInt(parts[i]);
-				i += 3;
-				if (!parts[i].equals("ET")) throw new RuntimeException("'ET' not in expected position, got " + parts[i] + " instead");
-				i++;
-
-				String actionLine = "";
-
-				while (!parts[i].contains(",")) {
-					actionLine += parts[i] + " ";
+				while (!reachedEnd) {
+					Integer.parseInt(parts[i]);
+					i += 3;
+					if (!parts[i].equals("ET"))
+						throw new RuntimeException("'ET' not in expected position, got " + parts[i] + " instead");
 					i++;
-				}
-				String[] actionsSplit = actionLine.split(" ");
-				if (actionsSplit.length == 4 || actionsSplit.length == 5) {
-					side = actionsSplit[0].toLowerCase();
-					action = (actionsSplit[2].equals("go") || actionsSplit[2].equals("open")) ? OPEN : CLOSE;
-				} else {
-					throw new RuntimeException("actionsSplit.length not 4 or 5. length = " + actionsSplit.length + ", actionLine = " + actionLine);
-				}
 
-				psize = Integer.parseInt(parts[i].replace(",", ""));
-				i++;
-				pair = parts[i].replace("/", "_");
-				i++;
+					String actionLine = "";
 
-				String marketOrder = "";
-				marketOrder += parts[i] + " ";
-				i++;
-				marketOrder += parts[i];
-				i++;
-				if (!marketOrder.equals("market order")) throw new RuntimeException("marketOrder invalid: " + marketOrder);
+					while (!parts[i].contains(",")) {
+						actionLine += parts[i] + " ";
+						i++;
+					}
+					String[] actionsSplit = actionLine.split(" ");
+					if (actionsSplit.length == 4 || actionsSplit.length == 5) {
+						side = actionsSplit[0].toLowerCase();
+						action = (actionsSplit[2].equals("go") || actionsSplit[2].equals("open")) ? OPEN : CLOSE;
+					} else {
+						throw new RuntimeException("actionsSplit.length not 4 or 5. length = " + actionsSplit.length + ", actionLine = " + actionLine);
+					}
 
-				String goodTil = "";
-				while (!parts[i].equals("traded")) {
-					if (!goodTil.equals("")) goodTil += " ";
-					goodTil += parts[i];
+					psize = Integer.parseInt(parts[i].replace(",", ""));
 					i++;
-				}
-				if (!goodTil.equals("Good Til Cancel") && !goodTil.equals("day order")) {
-					throw new RuntimeException("Invalid value for goodTil: " + goodTil);
-				}
+					pair = parts[i].replace("/", "_");
+					i++;
 
-				if (!parts[i].equals("traded")) throw new RuntimeException("expected 'traded', got: " + parts[i]);
-				i++;
-				if (!parts[i].equals("at")) throw new RuntimeException("expected 'at', got: " + parts[i]);
-				i++;
+					String marketOrder = "";
+					marketOrder += parts[i] + " ";
+					i++;
+					marketOrder += parts[i];
+					i++;
+					if (!marketOrder.equals("market order"))
+						throw new RuntimeException("marketOrder invalid: " + marketOrder);
 
-				oprice = Double.parseDouble(parts[i]);
+					String goodTil = "";
+					while (!parts[i].equals("traded")) {
+						if (!goodTil.equals("")) goodTil += " ";
+						goodTil += parts[i];
+						i++;
+					}
+					if (!goodTil.equals("Good Til Cancel") && !goodTil.equals("day order")) {
+						throw new RuntimeException("Invalid value for goodTil: " + goodTil);
+					}
+
+					if (!parts[i].equals("traded")) throw new RuntimeException("expected 'traded', got: " + parts[i]);
+					i++;
+					if (!parts[i].equals("at")) throw new RuntimeException("expected 'at', got: " + parts[i]);
+					i++;
+
+					oprice = Double.parseDouble(parts[i]);
+
+					// handle the info directly if the message is a standard, one-trade message
+					// otherwise, only do the closes (do not touch opens in a multi)
+					if (!multi || action.equals(CLOSE)) {
+						try {
+							handleInfo(action, side, psize, pair, oprice);
+						} catch(IOException ioe) {
+							System.err.println("Error in StrategyHandler.handleInfo: " + ioe);
+							ioe.printStackTrace(System.err);
+						}
+					}
+
+					i += 4; // will be pointing to the id of the next trade if multitrade
+
+					reachedEnd = (i >= parts.length);
+				}
 
 
 			} catch (RuntimeException re) {
@@ -123,13 +144,6 @@ public abstract class StrategyHandler implements IStrategyHandler {
 
 			//System.out.println("date = " + date + ", time = " + time + ", action = " + action + ", type = " + type +
 			//	", psize = " + psize + ", pair = " + pair + ", oprice = " + oprice + "\n----");
-
-			try {
-				handleInfo(action, side, psize, pair, oprice);
-			} catch (IOException ioe) {
-				System.err.println("Error in StrategyHandler.handleInfo: " + ioe);
-				ioe.printStackTrace(System.err);
-			}
 		}
 	}
 

@@ -16,10 +16,10 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	private static final int POS_SIZE_MULTIPLIER = 3;
 
 	/** Stop-loss in pips */
-	private static final int STOP_LOSS = 18;
+	private static final int STOP_LOSS = 15;
 
 	/** Trailing stop-loss in pips */
-	private static final int TRAILING_STOP_LOSS = 24;
+	private static final int TRAILING_STOP_LOSS = 15;
 
 	/**
 	 * Constructor for the reverse strategy.

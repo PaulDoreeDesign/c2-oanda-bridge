@@ -55,6 +55,11 @@ public class MailKeepAlive implements Runnable {
 							Store store = MailSync.getStore();
 							while (!connected) {
 								try {
+									System.err.println("Trying to close store before opening connection again:");
+									// disconnect old store
+									store.close();
+									System.err.println("Closed old store, trying to open connection:");
+									// connect store again
 									store.connect("smtp.gmail.com", Main.EMAIL + "@gmail.com", Main.PASSWORD);
 									connected = true;
 								} catch (MessagingException me) {
@@ -66,6 +71,9 @@ public class MailKeepAlive implements Runnable {
 									}
 								}
 							}
+
+							System.err.println("Managed to connect to store... continuing reconnect process:");
+
 							try {
 								// open inbox
 								IMAPFolder folder = (IMAPFolder) store.getFolder("inbox");

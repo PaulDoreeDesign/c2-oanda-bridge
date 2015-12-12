@@ -53,7 +53,8 @@ public class Main {
 
 		// load gmail mailserver properties and connect to it
 		Properties props = new Properties();
-		props.load(new FileInputStream(new File("smtp.properties")));
+		FileInputStream fis = new FileInputStream(new File("smtp.properties"));
+		props.load(fis);
 		props.setProperty("mail.imaps.usesocketchannels", "true");
 		Session session = Session.getInstance(props, null);
 		Store store = session.getStore("imaps");
@@ -72,6 +73,9 @@ public class Main {
 		Thread keepAliveThread = new Thread(new MailKeepAlive(inbox));
 		keepAliveThread.start();
 		System.out.println("Started running keep-alive thread.");
+
+		// close file input stream
+		fis.close();
 
 		// listen for new emails
 		C2OBridge.listen(inbox);

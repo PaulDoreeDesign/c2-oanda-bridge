@@ -59,11 +59,9 @@ public class C2OBridge {
 	}
 
 	/**
-	 * Creates an instance of the C2OBridge with the 'inbox' folder from the email account.
+	 * Creates an instance of the C2OBridge.
 	 */
 	public C2OBridge() {
-		IMAPFolder inbox = MailSync.getInbox();
-
 		// initialise the applicable strategies and their account ids
 		strategyHandlers = new ArrayList<StrategyHandler>();
 		// smart copy strategy

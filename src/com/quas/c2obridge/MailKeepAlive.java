@@ -7,7 +7,12 @@ import com.sun.mail.imap.protocol.IMAPProtocol;
 
 import javax.mail.Folder;
 import javax.mail.MessagingException;
+import javax.mail.Session;
 import javax.mail.Store;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.Properties;
 
 /**
  * Runnable used to keep alive the connection to the IMAP server
@@ -46,6 +51,13 @@ public class MailKeepAlive implements Runnable {
 							System.err.println("Trying to reconnect...");
 							System.out.println("Encountered ConnectionException, trying to reconnect...");
 
+							try {
+								folder.close(false); // close folder
+							} catch (MessagingException me) {
+								System.err.println("While trying to reconnect, exception caught while trying to close folder: " + me);
+								me.printStackTrace(System.err);
+							}
+
 							// stop old idle manager
 							MailSync.getIdleManager().stop();
 							// shutdown old executor service
@@ -57,11 +69,24 @@ public class MailKeepAlive implements Runnable {
 								try {
 									System.err.println("Trying to close store before opening connection again:");
 									// disconnect old store
-									store.close();
+									if (store != null) {
+										store.close();
+										store = null;
+									}
 									System.err.println("Closed old store, trying to open connection:");
+									Properties props = new Properties();
+									FileInputStream fis = new FileInputStream(new File("smtp.properties"));
+									props.load(fis);
+									props.setProperty("mail.imaps.usesocketchannels", "true");
+									Session session = Session.getInstance(props, null);
+									store = session.getStore("imaps");
+									MailSync.setStore(store);
+									MailSync.setSession(session);
 									// connect store again
 									store.connect("smtp.gmail.com", Main.EMAIL + "@gmail.com", Main.PASSWORD);
 									connected = true;
+									// close file input stream
+									fis.close();
 								} catch (MessagingException me) {
 									// sleep and try again
 									try {
@@ -69,6 +94,9 @@ public class MailKeepAlive implements Runnable {
 									} catch (InterruptedException ie) {
 										// do nothing
 									}
+								} catch (IOException ioe) {
+									System.err.println("Error trying to reconnect: " + ioe);
+									ioe.printStackTrace(System.err);
 								}
 							}
 

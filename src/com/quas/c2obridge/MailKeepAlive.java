@@ -65,6 +65,10 @@ public class MailKeepAlive implements Runnable {
 							// create new connection
 							boolean connected = false;
 							Store store = MailSync.getStore();
+							// session doesn't seem to have a close method or anything, just set it to null and hopefully it's garbage collected ASAP
+							MailSync.setSession(null);
+
+							// keep trying to reconnect
 							while (!connected) {
 								try {
 									System.err.println("Trying to close store before opening connection again:");

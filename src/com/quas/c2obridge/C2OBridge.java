@@ -109,9 +109,9 @@ public class C2OBridge {
 						System.out.println("WARNING: new unhandled emails in inbox. force-quitting, check inbox manually...");
 						System.exit(0);
 					}
-					System.out.println("Inbox checked successfully with no issues.");
 				}
 			}
+			System.out.println("Inbox checked successfully with no issues.");
 		} catch (MessagingException me) {
 			System.err.println("Error reading inbox messages: " + me);
 			me.printStackTrace(System.err);

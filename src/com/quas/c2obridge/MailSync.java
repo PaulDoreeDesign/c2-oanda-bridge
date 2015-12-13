@@ -21,8 +21,6 @@ public class MailSync {
 	private static Session session;
 	private static ExecutorService executorService;
 
-	private static int setStoreCount = 0;
-
 	public synchronized static void shutdownExecutorService() {
 		executorService.shutdown();
 		executorService = null;
@@ -46,8 +44,6 @@ public class MailSync {
 
 	public synchronized static void setStore(Store newStore) {
 		store = newStore;
-		setStoreCount++;
-		if (setStoreCount > 1) throw new RuntimeException("setStore() called more than once");
 	}
 
 	public synchronized static IMAPFolder getInbox() {

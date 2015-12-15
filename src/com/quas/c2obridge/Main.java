@@ -55,7 +55,8 @@ public class Main {
 		Properties props = new Properties();
 		FileInputStream fis = new FileInputStream(new File("smtp.properties"));
 		props.load(fis);
-		props.setProperty("mail.imaps.usesocketchannels", "true");
+		//props.setProperty("mail.imaps.usesocketchannels", "true");
+		System.out.println("didn't set usesocketchannels");
 		Session session = Session.getInstance(props, null);
 		Store store = session.getStore("imaps");
 		MailSync.setStore(store);

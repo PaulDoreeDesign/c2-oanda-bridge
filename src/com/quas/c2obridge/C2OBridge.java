@@ -144,7 +144,7 @@ public class C2OBridge {
 							// run message through all the strategies
 							for (StrategyHandler strategy : strategyHandlers) {
 								strategy.handleMessage(message);
-								sleep(1000); // sleep for 1 sec between strategies to not exceed limit for Oanda API calls
+								sleep(500); // sleep for half sec between strategies to not exceed limit for Oanda API calls
 							}
 						}
 					} catch (IOException ioe) {

@@ -181,6 +181,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		double ask = json.getDouble("ask");
 		double bid = json.getDouble("bid");
 		double ret = (side == BUY) ? ask : bid;
+		C2OBridge.sleep(500); // sleep for half a second after every request
 		return ret;
 	}
 
@@ -196,6 +197,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		JSONObject json = new JSONObject(response).getJSONArray("prices").getJSONObject(0);
 		double ask = json.getDouble("ask");
 		double bid = json.getDouble("bid");
+		C2OBridge.sleep(500); // sleep for half a second after every request
 		return (ask + bid) / 2;
 	}
 
@@ -244,6 +246,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	public double getAccountBalance() {
 		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId, "GET", OANDA_API_KEY);
 		JSONObject json = new JSONObject(con.getResponse());
+		C2OBridge.sleep(500); // sleep for half a second after every request
 		return json.getDouble(BALANCE);
 	}
 
@@ -268,6 +271,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		String response = con.getResponse();
 		JSONObject json = new JSONObject(response).getJSONObject("tradeOpened");
 		// if (json == null) throw new RuntimeException("Tried to open trade but it failed: pair = " + pair);
+		C2OBridge.sleep(500); // sleep for half a second after every request
 		return json.getLong("id");
 	}
 
@@ -308,6 +312,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 
 		String response = con.getResponse();
 		JSONObject json = new JSONObject(response).getJSONObject("orderOpened");
+		C2OBridge.sleep(500); // sleep for half a second after every request
 		return json.getLong("id");
 	}
 
@@ -325,6 +330,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		for (int i = 0; i < arr.length(); i++) {
 			list.add(arr.getJSONObject(i));
 		}
+		C2OBridge.sleep(500); // sleep for half a second after every request
 		return list;
 	}
 
@@ -341,6 +347,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		for (int i = 0; i < arr.length(); i++) {
 			list.add(arr.getJSONObject(i));
 		}
+		C2OBridge.sleep(500); // sleep for half a second after every request
 		return list;
 	}
 
@@ -354,6 +361,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		String response = con.getResponse();
 		// @TODO check response to make sure close was successful
 		// System.out.println(response);
+		C2OBridge.sleep(500); // sleep for half a second after every request
 	}
 
 	/**
@@ -366,6 +374,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		String response = con.getResponse();
 		// @TODO check response to make sure delete was successful
 		// System.out.println(response);
+		C2OBridge.sleep(500); // sleep for half a second after every request
 	}
 
 	/**
@@ -385,6 +394,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		String response = con.getResponse();
 		// @TODO check response to make sure close was successful
 		// @TODO verify that this method works
+		C2OBridge.sleep(500); // sleep for half a second after every request
 	}
 
 	/**
@@ -404,6 +414,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		String response = con.getResponse();
 		// @TODO check response to make sure close was successful
 		// @TODO verify that this method works
+		C2OBridge.sleep(500); // sleep for half a second after every request
 	}
 
 	/**

@@ -1,3 +1,3 @@
 Manifest-Version: 1.0
-Main-Class: com.quas.c2obridge.Main
+Main-Class: com.quas.c2obridge.test.ConnectionTest
 

@@ -82,6 +82,9 @@ public class MailKeepAlive implements Runnable {
 									FileInputStream fis = new FileInputStream(new File("smtp.properties"));
 									props.load(fis);
 									props.setProperty("mail.imaps.usesocketchannels", "true");
+									props.setProperty("mail.smtps.auth", "true");
+									props.setProperty("mail.smtps.starttls.enable", "true");
+									props.setProperty("mail.smtps.debug", "true");
 									Session session = Session.getInstance(props, null);
 									store = session.getStore("imaps");
 									MailSync.setStore(store);

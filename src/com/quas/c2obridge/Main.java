@@ -42,7 +42,7 @@ public class Main {
 		PASSWORD = gmailProps.getProperty("GMAIL_PASS");
 	}
 
-	public static void main(String[] args) throws Exception {
+	public static void temp(String[] args) throws Exception {
 		// redirect System.err to log file
 		File file = new File("err_log.txt");
 		FileOutputStream fos = new FileOutputStream(file);
@@ -55,8 +55,7 @@ public class Main {
 		Properties props = new Properties();
 		FileInputStream fis = new FileInputStream(new File("smtp.properties"));
 		props.load(fis);
-		//props.setProperty("mail.imaps.usesocketchannels", "true");
-		System.out.println("didn't set usesocketchannels");
+		props.setProperty("mail.imaps.usesocketchannels", "true");
 		Session session = Session.getInstance(props, null);
 		Store store = session.getStore("imaps");
 		MailSync.setStore(store);

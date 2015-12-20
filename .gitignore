@@ -9,11 +9,12 @@ gmail.properties
 oanda.properties
 smtp.properties
 
-## error log
-err_log.txt
+## log files
+*.txt
 
 ## smart copy records and log
 smartcopy_log.txt
 smartcopy.properties
 
 ## actual jar file
+c2-oanda-bridge.jar

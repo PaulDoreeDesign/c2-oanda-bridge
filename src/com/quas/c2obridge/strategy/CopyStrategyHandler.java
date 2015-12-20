@@ -1,5 +1,6 @@
 package com.quas.c2obridge.strategy;
 
+import com.quas.c2obridge.Logger;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -51,7 +52,7 @@ public class CopyStrategyHandler extends StrategyHandler {
 				openTrade(side, oandaPsize, pair);
 			} else {
 				// missed opportunity
-				System.err.println("[CopyStrategy] missed opportunity to place order to " + side + " " + pair + " (pip diff = " + diff +
+				Logger.error("[CopyStrategy] missed opportunity to place order to " + side + " " + pair + " (pip diff = " + diff +
 						" - actiontype = " + side + ", compare = " + compare + ", oprice = " + oprice + ")");
 				// @TODO maybe place limit order?
 			}

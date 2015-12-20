@@ -30,37 +30,37 @@ public class KeepAlive implements Runnable {
 				String minute = C2OBridge.getCurrentMinute();
 				int minuteInt = Integer.parseInt(minute);
 				if (minuteInt % 60 == 0) {
-					System.out.println("-----------------------------\n| NEW HOUR (" + C2OBridge.getCurrentTime() + ") |\n-----------------------------\n");
+					Logger.info("-----------------------------\n| NEW HOUR (" + C2OBridge.getCurrentTime() + ") |\n-----------------------------");
 				} else {
-					System.out.print(minute + " ");
+					Logger.out.print(minute + " ");
 				}
 				folder.doCommand(new IMAPFolder.ProtocolCommand() {
 					public Object doCommand(IMAPProtocol p) {
 						try {
 							p.simpleCommand("NOOP", null);
 						} catch (ConnectionException ce) {
-							System.err.println("Encountered ConnectionException: " + ce);
-							System.err.println("Shutting down thread.");
+							Logger.error("Encountered ConnectionException: " + ce);
+							Logger.error("Shutting down thread.");
 							running = false;
 						} catch (ProtocolException pe) {
-							System.err.println("Encountered ProtocolException: " + pe);
-							System.err.println("Shutting down application completely...");
-							System.exit(1);
+							Logger.error("Encountered ProtocolException: " + pe);
+							Logger.error("Shutting down application completely...");
+							C2OBridge.crash();
 						}
 						return null;
 					}
 				});
 			} catch (InterruptedException e) {
 				// Ignore, just aborting the thread...
-				System.out.println("Keep alive thread was interrupted, shouldn't be a biggie");
+				Logger.info("Keep alive thread was interrupted, shouldn't be a biggie");
 			} catch (MessagingException e) {
 				// Shouldn't really happen...
-				System.err.println("Unexpected exception while keeping alive the IDLE connection: " + e);
-				e.printStackTrace(System.err);
-				System.err.println("Shutting down application completely...");
-				System.exit(1);
+				Logger.error("Unexpected exception while keeping alive the IDLE connection: " + e);
+				e.printStackTrace(Logger.err);
+				Logger.error("Shutting down application completely...");
+				C2OBridge.crash();
 			}
 		}
-		System.out.println("Join should occur right now:");
+		Logger.info("Join should occur right now:");
 	}
 }

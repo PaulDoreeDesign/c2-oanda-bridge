@@ -1,5 +1,7 @@
 package com.quas.c2obridge.strategy;
 
+import com.quas.c2obridge.Logger;
+
 import java.io.IOException;
 
 /**
@@ -66,7 +68,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 				modifyTrade(id, stopLoss, TRAILING_STOP_LOSS);
 			} else {
 				// missed opportunity
-				System.err.println("[ReverseStrategy] missed opportunity to place order to " + side + " " + pair + " (pip diff = " + diff +
+				Logger.error("[ReverseStrategy] missed opportunity to place order to " + side + " " + pair + " (pip diff = " + diff +
 						" - actiontype = " + side + ", curPrice = " + curPrice + ", oprice = " + oprice + ")");
 			}
 		}

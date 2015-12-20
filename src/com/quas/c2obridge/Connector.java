@@ -74,7 +74,6 @@ public class Connector {
 
 					first = false;
 				}
-				// System.out.println("writeLine = " + writeLine);
 
 				bytes = writeLine.getBytes(UTF8);
 				this.writeString = writeLine;
@@ -97,8 +96,8 @@ public class Connector {
 			}
 
 		} catch (IOException ioe) {
-			System.err.println("Error in Connector's constructor: " + ioe);
-			ioe.printStackTrace(System.err);
+			Logger.error("Error in Connector's constructor: " + ioe);
+			ioe.printStackTrace(Logger.err);
 		}
 	}
 
@@ -113,8 +112,8 @@ public class Connector {
 			con.getInputStream().close(); // close connection
 			return response;
 		} catch (IOException ioe) {
-			System.err.println("Error trying to read in Connector (url = " + urlString + ", writeString = " + writeString + "): " + ioe);
-			ioe.printStackTrace(System.err);
+			Logger.error("Error trying to read in Connector (url = " + urlString + ", writeString = " + writeString + "): " + ioe);
+			ioe.printStackTrace(Logger.err);
 			return null;
 		}
 	}

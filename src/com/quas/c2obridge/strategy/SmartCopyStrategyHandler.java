@@ -1,5 +1,7 @@
 package com.quas.c2obridge.strategy;
 
+import com.quas.c2obridge.C2OBridge;
+import com.quas.c2obridge.Logger;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -114,13 +116,13 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 				blacklist.add(s);
 			}
 		} catch (IOException ioe) {
-			System.err.println("Error loading smartcopy.properties save data: " + ioe);
-			ioe.printStackTrace(System.err);
-			System.exit(0);
+			Logger.error("Error loading smartcopy.properties save data: " + ioe);
+			ioe.printStackTrace(Logger.err);
+			C2OBridge.crash();
 		} catch (RuntimeException re) {
-			System.err.println("Error loading smartcopy.properties save data, corruption: " + re);
-			re.printStackTrace(System.err);
-			System.exit(0);
+			Logger.error("Error loading smartcopy.properties save data, corruption: " + re);
+			re.printStackTrace(Logger.err);
+			C2OBridge.crash();
 		}
 	}
 
@@ -153,8 +155,8 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 			props.store(fos, null);
 			fos.close();
 		} catch (IOException ioe) {
-			System.err.println("Unable to save SmartCopy strategy data: " + ioe);
-			ioe.printStackTrace(System.err);
+			Logger.error("Unable to save SmartCopy strategy data: " + ioe);
+			ioe.printStackTrace(Logger.err);
 		}
 	}
 
@@ -189,7 +191,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 			if (blacklist.contains(pair)) {
 				// pair is currently blacklisted, show notification message and do nothing
 				// even if trade has been re-entered as per re-entry rules, the currency pair will still stay on blacklist here
-				System.out.println("[SmartCopyStrategy] C2 added to position for pair " + pair + ", which is blacklisted. No action taken.");
+				Logger.info("[SmartCopyStrategy] C2 added to position for pair " + pair + ", which is blacklisted. No action taken.");
 				return;
 			}
 			if (currentlyOpen.contains(pair)) {
@@ -245,18 +247,18 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 						// modify trade and give it the stop loss
 						modifyTrade(newTradeId, tsl, NO_TRAILING_STOP);
 						// debug message
-						System.out.println("[SmartCopyStrategy] Added to existing position: stop-loss of all trades shifted from " +
+						Logger.info("[SmartCopyStrategy] Added to existing position: stop-loss of all trades shifted from " +
 							prevStopLoss + " to " + tsl);
 					} else {
 						// clash, just print debug message and do nothing
-						System.out.println("[SmartCopyStrategy] C2 added to existing position but we couldn't: stop-loss was at " +
+						Logger.info("[SmartCopyStrategy] C2 added to existing position but we couldn't: stop-loss was at " +
 							prevStopLoss + ", would needed to have been moved to " + tsl + " but couldn't.");
 					}
 				} else if (orders.size() > 0) { // order was placed and is still there, this should rarely ever happen...
-					System.out.println("[SmartCopyStrategy] C2 added to position but our limit order hasn't even popped. Weird! pair = " + pair);
+					Logger.info("[SmartCopyStrategy] C2 added to position but our limit order hasn't even popped. Weird! pair = " + pair);
 					// don't do anything else, this is a very rare and strange situation: wait for manual intervention
 				} else { // the pair has definitely been stopped out: remove from currentlyOpen and add to blacklist
-					System.out.println("[SmartCopyStrategy] C2 added to position for pair " + pair +
+					Logger.info("[SmartCopyStrategy] C2 added to position for pair " + pair +
 						", but our position was already stopped out. Adding [" + pair + "] to blacklist.");
 					currentlyOpen.remove(pair);
 					blacklist.add(pair);
@@ -295,7 +297,6 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 				double stopLoss = bound; // stopLoss is relative to bound, not curPrice, for limit orders
 				if (side.equals(BUY)) stopLoss -= stopLossPrice;
 				else stopLoss += stopLossPrice;
-				// System.out.println("curPrice = " + curPrice + ", oprice = " + oprice + ", bound = " + bound + ", stopLoss = " + stopLoss + ", stopLossPips = " + stopLossPips);
 				// place the order
 				long orderId = createOrder(side, oandaPsize, pair, bound);
 				// modify the order and give it appropriate stop loss

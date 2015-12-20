@@ -1,4 +1,4 @@
-package com.quas.c2obridge.strategy;
+package com.quas.c2obridge;
 
 import com.quas.c2obridge.C2OBridge;
 
@@ -26,17 +26,18 @@ public class CommandLineHandler implements Runnable {
 		try {
 			while ((line = reader.readLine()) != null) {
 				if (line.equals("shutdown")) {
-					System.out.println("[C2OBridge] Starting shutdown procedure:");
+					Logger.console("[C2OBridge] Starting shutdown procedure:");
 					app.shutdown();
+					Logger.shutdown();
 					C2OBridge.sleep(3000); // sleep for 3 seconds anyway, just in case
-					System.out.println("[C2OBridge] Shutdown successfully.");
-					System.exit(0);
+					Logger.console("[C2OBridge] Shutdown successfully.");
+					C2OBridge.crash();
 				} else {
-					System.out.println("[C2OBridge] Unrecognised command.");
+					Logger.console("[C2OBridge] Unrecognised command.");
 				}
 			}
 		} catch (IOException ioe) {
-			System.out.println("IOException caught while trying to read commandline. Shouldn't be a problem if app is shutting down.");
+			Logger.console("IOException caught while trying to read commandline. Shouldn't be a problem if app is shutting down.");
 		}
 	}
 }

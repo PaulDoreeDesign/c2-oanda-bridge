@@ -3,6 +3,7 @@ package com.quas.c2obridge.strategy;
 import com.quas.c2obridge.C2OBridge;
 import com.quas.c2obridge.Connector;
 import com.quas.c2obridge.CurrencyPairs;
+import com.quas.c2obridge.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
@@ -59,7 +60,6 @@ public abstract class StrategyHandler implements IStrategyHandler {
 			int start = body.indexOf(SEARCH_START_STRING) + SEARCH_START_STRING.length();
 			int stop = body.indexOf(SEARCH_STOP_STRING);
 			String relevant = body.substring(start, stop);
-			// System.out.println(relevant);
 			String[] parts = relevant.trim().split("\\s+");
 			boolean multi = parts.length > 28; // whether or not this is a multi email
 
@@ -129,8 +129,8 @@ public abstract class StrategyHandler implements IStrategyHandler {
 						try {
 							handleInfo(action, side, psize, pair, oprice);
 						} catch(IOException ioe) {
-							System.err.println("Error in StrategyHandler.handleInfo: " + ioe);
-							ioe.printStackTrace(System.err);
+							Logger.error("Error in StrategyHandler.handleInfo: " + ioe);
+							ioe.printStackTrace(Logger.err);
 						}
 					}
 
@@ -141,12 +141,9 @@ public abstract class StrategyHandler implements IStrategyHandler {
 
 
 			} catch (RuntimeException re) {
-				System.err.println("Extraction failed, entire line = " + relevant + ", index 0 = " + parts[0]);
-				re.printStackTrace(System.err);
+				Logger.error("Extraction failed, entire line = " + relevant + ", index 0 = " + parts[0]);
+				re.printStackTrace(Logger.err);
 			}
-
-			//System.out.println("date = " + date + ", time = " + time + ", action = " + action + ", type = " + type +
-			//	", psize = " + psize + ", pair = " + pair + ", oprice = " + oprice + "\n----");
 		}
 	}
 
@@ -363,7 +360,6 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/trades/" + tradeId, Connector.DELETE, OANDA_API_KEY);
 		String response = con.getResponse();
 		// @TODO check response to make sure close was successful
-		// System.out.println(response);
 		C2OBridge.sleep(500); // sleep for half a second after every request
 	}
 
@@ -376,7 +372,6 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/orders/" + orderId, Connector.DELETE, OANDA_API_KEY);
 		String response = con.getResponse();
 		// @TODO check response to make sure delete was successful
-		// System.out.println(response);
 		C2OBridge.sleep(500); // sleep for half a second after every request
 	}
 

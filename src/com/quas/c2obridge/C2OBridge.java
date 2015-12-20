@@ -42,6 +42,9 @@ public class C2OBridge {
 	/** Email password */
 	public static final String PASSWORD;
 
+	/** Instance of app */
+	private static C2OBridge app;
+
 	// load from props file
 	static {
 		// application settings
@@ -49,9 +52,9 @@ public class C2OBridge {
 		try {
 			settings.load(new FileInputStream(new File("settings.properties")));
 		} catch (IOException ioe) {
-			System.err.println("Error loading config.properties file: " + ioe);
-			ioe.printStackTrace(System.err);
-			System.exit(0);
+			Logger.error("Error loading config.properties file: " + ioe);
+			ioe.printStackTrace(Logger.err);
+			crash();
 		}
 		DEBUG_MODE = Boolean.parseBoolean(settings.getProperty("DEBUG_MODE"));
 
@@ -60,9 +63,9 @@ public class C2OBridge {
 		try {
 			gmailProps.load(new FileInputStream(new File("gmail.properties")));
 		} catch (IOException ioe) {
-			System.err.println("Error loading config.properties file: " + ioe);
-			ioe.printStackTrace(System.err);
-			System.exit(0);
+			Logger.error("Error loading config.properties file: " + ioe);
+			ioe.printStackTrace(Logger.err);
+			crash();
 		}
 		EMAIL = gmailProps.getProperty("GMAIL_ACC");
 		PASSWORD = gmailProps.getProperty("GMAIL_PASS");
@@ -72,9 +75,9 @@ public class C2OBridge {
 		try {
 			oandaProps.load(new FileInputStream(new File("oanda.properties")));
 		} catch (IOException ioe) {
-			System.err.println("Error loading config.properties file: " + ioe);
-			ioe.printStackTrace(System.err);
-			System.exit(0);
+			Logger.error("Error loading config.properties file: " + ioe);
+			ioe.printStackTrace(Logger.err);
+			crash();
 		}
 		OANDA_API_KEY = oandaProps.getProperty("API_KEY");
 		OANDA_API_URL = oandaProps.getProperty("API_URL");
@@ -111,13 +114,13 @@ public class C2OBridge {
 
 	public static void main(String[] args) {
 		// create instance of app
-		final C2OBridge app = new C2OBridge();
+		app = new C2OBridge();
 		// initialise command line handler thread
 		new Thread(new CommandLineHandler(app)).start();
 
 		try {
 			for (int i = 0; i < 100; i++) {
-				System.out.println("[ATTEMPT #" + (i + 1) + "] Connecting to mail server:");
+				Logger.info("[ATTEMPT #" + (i + 1) + "] Connecting to mail server:");
 				// load gmail mailserver properties and connect to it
 				Properties props = new Properties();
 				FileInputStream fis = new FileInputStream(new File("smtp.properties"));
@@ -130,8 +133,8 @@ public class C2OBridge {
 				try {
 					store = session.getStore("imaps");
 				} catch (NoSuchProviderException ne) {
-					System.err.println("No such error exception wtf? " + ne);
-					ne.printStackTrace(System.err);
+					Logger.error("No such error exception wtf? " + ne);
+					ne.printStackTrace(Logger.err);
 					return;
 				}
 				store.connect("smtp.gmail.com", EMAIL + "@gmail.com", PASSWORD);
@@ -141,31 +144,31 @@ public class C2OBridge {
 				inbox.open(Folder.READ_WRITE);
 
 				// go through and check all emails
-				System.out.println("Checking current messages in inbox:");
+				Logger.info("Checking current messages in inbox:");
 				Message[] messages = inbox.getMessages();
 				if (messages.length > 0) {
 					if (!DEBUG_MODE) {
-						System.out.println("There are undeleted messages in the inbox. Terminating...");
-						System.exit(0);
+						Logger.info("There are undeleted messages in the inbox. Terminating...");
+						crash();
 						return;
 					} else {
 						// go through all the messages
 						for (Message m : messages) {
-							System.out.println("Title: " + m.getSubject());
+							Logger.info("Title: " + m.getSubject());
 						}
 					}
 				}
 				if (DEBUG_MODE) {
 					// this is where it ends for debug mode
-					System.out.println("Was run in debug mode, terminating...");
-					System.exit(0);
+					Logger.info("Was run in debug mode, terminating...");
+					crash();
 					return;
 				}
 
 				// setup keep-alive thread
 				Thread keepAliveThread = new Thread(new KeepAlive(inbox));
 				keepAliveThread.start();
-				System.out.println("Started running nested-class keep-alive thread.");
+				Logger.info("Started running nested-class keep-alive thread.");
 
 				try {
 					ExecutorService es = Executors.newCachedThreadPool();
@@ -182,66 +185,77 @@ public class C2OBridge {
 							// process each message
 							try {
 								for (Message message : messages) {
-									System.out.println("\n[" + getCurrentTime() + "] Received a message with title = " + message.getSubject());
+									Logger.info("\n[" + getCurrentTime() + "] Received a message with title = " + message.getSubject());
 									for (StrategyHandler strategy : app.strategyHandlers) {
 										strategy.handleMessage(message);
-										sleep(500); // sleep for half sec between strategies to not exceed limit for Oanda API calls
+										sleep(1000); // sleep 1 sec between strategies to not exceed limit for Oanda API calls
 									}
 								}
 							} catch (MessagingException me) {
-								System.err.println("Error in ConnectionTest->main->messagesAdded(): " + me);
-								me.printStackTrace(System.err);
-								System.exit(1);
+								Logger.error("Error in ConnectionTest->main->messagesAdded(): " + me);
+								me.printStackTrace(Logger.err);
+								crash();
 							} catch (IOException ioe) {
-								System.err.println("There was an issue in I/O when trying to do transaction: " + ioe);
-								ioe.printStackTrace(System.err);
+								Logger.error("There was an issue in I/O when trying to do transaction: " + ioe);
+								ioe.printStackTrace(Logger.err);
 							}
 
 							try {
 								idleManager.watch(folder); // keep watching for new messages
 							} catch (MessagingException mex) {
-								System.err.println("MessagingException caught when watching for new messages:");
-								mex.printStackTrace(System.err);
-								System.exit(1);
+								Logger.error("MessagingException caught when watching for new messages:");
+								mex.printStackTrace(Logger.err);
+								crash();
 							}
 						}
 					});
 					idleManager.watch(inbox);
 
 					// handle input here
-					System.out.println("Setup complete, listening for new emails...");
+					Logger.info("Setup complete, listening for new emails...");
 
 					try {
 						keepAliveThread.join();
-						System.out.println("KeepAliveThread joined.");
+						Logger.info("KeepAliveThread joined.");
 					} catch (InterruptedException ie) {
-						System.err.println("Interrupted in main but will loop anyway: " + ie);
+						Logger.error("Interrupted in main but will loop anyway: " + ie);
 					}
 
-					System.out.println("Closing inbox, stopping idle manager and shutting down executor service:");
+					Logger.info("Closing inbox, stopping idle manager and shutting down executor service:");
 					inbox.close(false);
 					idleManager.stop();
 					es.shutdownNow();
-					System.out.println("---------------------------\nRestarting everything now---------------------------\n");
+					Logger.info("---------------------------\nRestarting everything now---------------------------\n");
 
 				} catch (IOException ioe) {
-					System.err.println("Error in ConnectionTest->main() (1): " + ioe);
-					ioe.printStackTrace(System.err);
-					System.exit(1);
+					Logger.error("Error in ConnectionTest->main() (1): " + ioe);
+					ioe.printStackTrace(Logger.err);
+					crash();
 				} catch (MessagingException me) {
-					System.err.println("Error in ConnectionTest->main() (2): " + me);
-					me.printStackTrace(System.err);
-					System.exit(1);
+					Logger.error("Error in ConnectionTest->main() (2): " + me);
+					me.printStackTrace(Logger.err);
+					crash();
 				}
 			}
 
 		} catch (IOException ioe) {
-			System.err.println("IOException occurred: " + ioe);
-			ioe.printStackTrace(System.err);
+			Logger.error("IOException occurred: " + ioe);
+			ioe.printStackTrace(Logger.err);
 		} catch (MessagingException me) {
-			System.err.println("MessagingException caught: " + me);
-			me.printStackTrace(System.err);
+			Logger.error("MessagingException caught: " + me);
+			me.printStackTrace(Logger.err);
 		}
+	}
+
+	/**
+	 * Forces the whole program to terminate.
+	 */
+	public static void crash() {
+		// notify strategies of early termination
+		app.shutdown();
+		// notify logger to flush output files and close
+		Logger.shutdown();
+		sleep(3000); // sleep for 3 seconds anyway, just in case
 	}
 
 	public static String getCurrentTime() {

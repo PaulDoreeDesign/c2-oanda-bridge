@@ -12,9 +12,8 @@ import java.util.*;
 
 /**
  * Strategy #2: copy C2 but smartly!
- * - max pip differential is 1 pip (negative in terms of our favour)
- * - if pip differential exceeded (ie. chance missed), set limit order instead, for 5 pips in our favour
- * - set stop loss at 0.6% of C2's account (and if multiplier is 6x, equal to 3.6% of our account)
+ * - we react to every trade opened by C2 by setting a limit order that is ENTRY_PIPS_DIFF pips negative with regards to C2's trade
+ * - stop loss will be at C2_STOPLOSS_PERCENT of C2's trade, starting at our limit order's entry point.
  * - re-entry: completely manual. re-entry rules:
  *   ~ only consider re-entry when C2 loss is 5%+
  *   ~ re-entry position size - 50% of position size multiplier (ie. if multiplier is 6, for re-entry, -> 3 instead)
@@ -33,8 +32,8 @@ import java.util.*;
  *   ~ if no longer active, it means we have been stopped out, so remove the pair from the local currently-open list and
  *     add to blacklist. do not open trade.
  *
- * Additional notes: Stop loss of 0.6% of C2's account was picked because 75% of trades have drawdowns equal to or lower
- * than it.
+ * Stop loss of 0.6% of C2's account has 75% of trades with drawdowns equal to or lower than it.
+ * Stop loss of 3.25% of C2's account has 92% of trades with drawdowns equal to or lower than it.
  *
  * Created by Quasar on 4/12/2015.
  */
@@ -49,14 +48,10 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 	/** Percentage of our account risked per trade, equivalent to C2_STOPLOSS_PERCENT * POS_SIZE_MULTIPLIER */
 	private static final double ACC_STOPLOSS_PERCENT = C2_STOPLOSS_PERCENT * POS_SIZE_MULTIPLIER;
 
-	/** Overrides the StrategyHandler's MAX_PIP_DIFF */
-	private static final int MAX_PIP_DIFF = 1;
-
 	/**
-	 * Number of pips from C2's original opening price (oprice variable) in OUR FAVOUR to place limit order if
-	 * instant open was missed
+	 * Number of pips from C2's original opening price (oprice variable) in OUR FAVOUR to place limit order at.
 	 */
-	private static final int LIMIT_ORDER_PIPS_DIFF = 5;
+	private static final int LIMIT_ORDER_PIPS_DIFF = 10;
 	/**
 	 * Number of pips that must separate the current price from new stop loss when making an additional trade.
 	 */
@@ -267,42 +262,24 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 				return;
 			}
 
-			// check if the pair has any orders pending - this shouldn't ever happen
-			ArrayList<JSONObject> olist = getOrders(pair);
-			if (olist.size() > 0) {
-				throw new RuntimeException("[SmartCopyStrategy] C2 opened position on " + pair + " but an order was pending - this should never happen");
-			}
-
 			// calculate appropriate stoploss for the trade
 			double accCurrencyPerPip = getAccCurrencyPerPip(pair);
 			double accCurrencyPerPipForTrade = accCurrencyPerPip * oandaPsize;
 			int stopLossPips = (int) (accountBalance * (ACC_STOPLOSS_PERCENT / 100D) / accCurrencyPerPipForTrade);
 			double stopLossPrice = pipsToPrice(pair, stopLossPips);
 
-			// not in blacklist or currentlyOpen - this is a completely fresh trade, open normally
-			// diff = difference between C2's opening price and oanda's current price, in pips
-			if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && curPrice < oprice) || (side.equals(SELL) && curPrice > oprice)) {
-				// pip difference is at most negative 1 pip (for us)
-				double stopLoss = curPrice;
-				if (side.equals(BUY)) stopLoss -= stopLossPrice;
-				else stopLoss += stopLossPrice;
-				// actually place the trade
-				long tradeId = openTrade(side, oandaPsize, pair);
-				// modify the trade
-				modifyTrade(tradeId, stopLoss, NO_TRAILING_STOP);
-			} else { // pip differential too large, place limit order instead
-				double d = pipsToPrice(pair, LIMIT_ORDER_PIPS_DIFF);
-				if (side.equals(BUY)) d *= -1; // if buy, we want price to be LIMIT_ORDER_PIPS_DIFF pips *LOWER* for advantage
-				double bound = oprice + d;
-				double stopLoss = bound; // stopLoss is relative to bound, not curPrice, for limit orders
-				if (side.equals(BUY)) stopLoss -= stopLossPrice;
-				else stopLoss += stopLossPrice;
-				// place the order
-				long orderId = createOrder(side, oandaPsize, pair, bound);
-				// modify the order and give it appropriate stop loss
-				modifyOrder(orderId, stopLoss, NO_TRAILING_STOP);
-			}
-			// add pair to currentlyOpen, doesn't matter if market order or limit order
+			// always place limit order
+			double d = pipsToPrice(pair, LIMIT_ORDER_PIPS_DIFF);
+			if (side.equals(BUY)) d *= -1; // if buy, we want price to be LIMIT_ORDER_PIPS_DIFF pips *LOWER* for advantage
+			double bound = oprice + d;
+			double stopLoss = bound; // stopLoss is relative to bound, not curPrice, for limit orders
+			if (side.equals(BUY)) stopLoss -= stopLossPrice;
+			else stopLoss += stopLossPrice;
+			// place the order
+			long orderId = createOrder(side, oandaPsize, pair, bound);
+			// modify the order and give it appropriate stop loss
+			modifyOrder(orderId, stopLoss, NO_TRAILING_STOP);
+			// add pair to currentlyOpen
 			currentlyOpen.add(pair);
 		} else {
 			// try to close all positions for the pair instantly

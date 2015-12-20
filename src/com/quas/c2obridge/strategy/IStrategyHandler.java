@@ -1,4 +1,4 @@
-package com.quas.c2obridge;
+package com.quas.c2obridge.strategy;
 
 import javax.mail.Message;
 import javax.mail.MessagingException;

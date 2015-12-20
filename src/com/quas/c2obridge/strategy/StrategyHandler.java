@@ -1,5 +1,8 @@
-package com.quas.c2obridge;
+package com.quas.c2obridge.strategy;
 
+import com.quas.c2obridge.C2OBridge;
+import com.quas.c2obridge.Connector;
+import com.quas.c2obridge.CurrencyPairs;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;

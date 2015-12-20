@@ -1,24 +1,25 @@
 package com.quas.c2obridge;
 
+import com.quas.c2obridge.strategy.*;
 import com.sun.mail.imap.IMAPFolder;
 import com.sun.mail.imap.IdleManager;
 
 import javax.mail.*;
 import javax.mail.event.MessageCountAdapter;
 import javax.mail.event.MessageCountEvent;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Application root
+ * Test class to try out different methods of keeping a permanent connection.
  *
- * Created by Quasar on 2/12/2015.
+ * Created by Quasar on 17/12/2015.
  */
 public class C2OBridge {
 
@@ -28,9 +29,6 @@ public class C2OBridge {
 	 */
 	private static final boolean DEBUG_MODE = false;
 
-	/** MessageHandler implementation */
-	private static List<StrategyHandler> strategyHandlers;
-
 	/** Oanda API details */
 	public static final String OANDA_API_KEY;
 	public static final String OANDA_API_URL;
@@ -39,8 +37,25 @@ public class C2OBridge {
 	private static final int REVERSE_ACC_ID;
 	private static final int SMART_COPY_ACC_ID;
 
+	/** Email address without the @gmail.com domain */
+	public static final String EMAIL;
+	/** Email password */
+	public static final String PASSWORD;
+
 	// load from props file
 	static {
+		Properties gmailProps = new Properties();
+		try {
+			gmailProps.load(new FileInputStream(new File("gmail.properties")));
+		} catch (IOException ioe) {
+			System.err.println("Error loading config.properties file: " + ioe);
+			ioe.printStackTrace(System.err);
+			System.exit(0);
+		}
+
+		EMAIL = gmailProps.getProperty("GMAIL_ACC");
+		PASSWORD = gmailProps.getProperty("GMAIL_PASS");
+
 		Properties oandaProps = new Properties();
 		try {
 			oandaProps.load(new FileInputStream(new File("oanda.properties")));
@@ -58,12 +73,15 @@ public class C2OBridge {
 		SMART_COPY_ACC_ID = Integer.parseInt(oandaProps.getProperty("SMART_COPY_ACC_ID"));
 	}
 
+	/** MessageHandler implementation */
+	private List<StrategyHandler> strategyHandlers;
+
 	/**
-	 * Creates an instance of the C2OBridge.
+	 * Constructs a new C2OBridge main application instance and initialises all the strategy handlers.
 	 */
 	public C2OBridge() {
 		// initialise the applicable strategies and their account ids
-		strategyHandlers = new ArrayList<StrategyHandler>();
+		this.strategyHandlers = new ArrayList<StrategyHandler>();
 		// smart copy strategy
 		strategyHandlers.add(new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
 		// exact copy strategy
@@ -81,99 +99,136 @@ public class C2OBridge {
 		}
 	}
 
-	public void readMessages() {
-		if (DEBUG_MODE) System.out.println("Sweeping inbox...");
-		else System.out.println("[ALERT] Running in production mode!");
+	public static void main(String[] args) {
+		// create instance of app
+		final C2OBridge app = new C2OBridge();
+		// initialise command line handler thread
+		new Thread(new CommandLineHandler(app)).start();
 
 		try {
-			IMAPFolder inbox = MailSync.getInbox();
-			inbox.open(Folder.READ_WRITE);
+			for (int i = 0; i < 100; i++) {
+				System.out.println("[ATTEMPT #" + (i + 1) + "] Connecting to mail server:");
+				// load gmail mailserver properties and connect to it
+				Properties props = new Properties();
+				FileInputStream fis = new FileInputStream(new File("smtp.properties"));
+				props.load(fis);
+				// close file input stream
+				fis.close();
+				props.setProperty("mail.imaps.usesocketchannels", "true");
+				Session session = Session.getInstance(props, null);
+				Store store;
+				try {
+					store = session.getStore("imaps");
+				} catch (NoSuchProviderException ne) {
+					System.err.println("No such error exception wtf? " + ne);
+					ne.printStackTrace(System.err);
+					return;
+				}
+				store.connect("smtp.gmail.com", EMAIL + "@gmail.com", PASSWORD);
 
-			// check that there aren't any C2 position update emails in inbox
-			// quit to force manual checking of inbox, if so
-			Message[] messages = inbox.getMessages();
-			for (Message message : messages) {
-				if (DEBUG_MODE) {
-					try {
-						for (StrategyHandler strategy : strategyHandlers) {
-							strategy.handleMessage(message);
-							sleep(1000);
+				// open up inbox
+				IMAPFolder inbox = (IMAPFolder) store.getFolder("inbox");
+				inbox.open(Folder.READ_WRITE);
+
+				// go through and check all emails
+				System.out.println("Checking current messages in inbox:");
+				Message[] messages = inbox.getMessages();
+				for (Message message : messages) {
+					System.out.println("Title: " + message.getSubject());
+				}
+
+				// setup keep-alive thread
+				Thread keepAliveThread = new Thread(new KeepAlive(inbox));
+				keepAliveThread.start();
+				System.out.println("Started running nested-class keep-alive thread.");
+
+				try {
+					ExecutorService es = Executors.newCachedThreadPool();
+					final IdleManager idleManager = new IdleManager(session, es);
+
+					// watch inbox for new emails
+					inbox.addMessageCountListener(new MessageCountAdapter() {
+
+						public void messagesAdded(MessageCountEvent ev) {
+
+							Folder folder = (Folder) ev.getSource();
+							Message[] messages = ev.getMessages();
+
+							// process each message
+							try {
+								for (Message message : messages) {
+									System.out.println("\n[" + getCurrentTime() + "] Received a message with title = " + message.getSubject());
+									for (StrategyHandler strategy : app.strategyHandlers) {
+										strategy.handleMessage(message);
+										sleep(500); // sleep for half sec between strategies to not exceed limit for Oanda API calls
+									}
+								}
+							} catch (MessagingException me) {
+								System.err.println("Error in ConnectionTest->main->messagesAdded(): " + me);
+								me.printStackTrace(System.err);
+								System.exit(1);
+							} catch (IOException ioe) {
+								System.err.println("There was an issue in I/O when trying to do transaction: " + ioe);
+								ioe.printStackTrace(System.err);
+							}
+
+							try {
+								idleManager.watch(folder); // keep watching for new messages
+							} catch (MessagingException mex) {
+								System.err.println("MessagingException caught when watching for new messages:");
+								mex.printStackTrace(System.err);
+								System.exit(1);
+							}
 						}
-					} catch (Exception e) {
-						System.err.println("ERROR: " + e);
-						e.printStackTrace(System.err);
+					});
+					idleManager.watch(inbox);
+
+					// handle input here
+					System.out.println("Setup complete, listening for new emails...");
+
+					try {
+						keepAliveThread.join();
+						System.out.println("KeepAliveThread joined.");
+					} catch (InterruptedException ie) {
+						System.err.println("Interrupted in main but will loop anyway: " + ie);
 					}
-				} else {
-					String subject = message.getSubject();
-					if (subject.equals(IStrategyHandler.SUBJECT_FIND)) {
-						System.out.println("WARNING: new unhandled emails in inbox. force-quitting, check inbox manually...");
-						System.exit(0);
-					}
+
+					System.out.println("Closing inbox, stopping idle manager and shutting down executor service:");
+					inbox.close(false);
+					idleManager.stop();
+					es.shutdownNow();
+					System.out.println("---------------------------\nRestarting everything now---------------------------\n");
+
+				} catch (IOException ioe) {
+					System.err.println("Error in ConnectionTest->main() (1): " + ioe);
+					ioe.printStackTrace(System.err);
+					System.exit(1);
+				} catch (MessagingException me) {
+					System.err.println("Error in ConnectionTest->main() (2): " + me);
+					me.printStackTrace(System.err);
+					System.exit(1);
 				}
 			}
-			System.out.println("Inbox checked successfully with no issues.");
+
+		} catch (IOException ioe) {
+			System.err.println("IOException occurred: " + ioe);
+			ioe.printStackTrace(System.err);
 		} catch (MessagingException me) {
-			System.err.println("Error reading inbox messages: " + me);
+			System.err.println("MessagingException caught: " + me);
 			me.printStackTrace(System.err);
 		}
 	}
 
-	/**
-	 * Begins a new thread which listens for new emails and handles them accordingly.
-	 */
-	public static void listen(final IMAPFolder folder) {
-		try {
-			ExecutorService es = Executors.newCachedThreadPool();
-			MailSync.setExecutorService(es);
-			Session session = MailSync.getSession();
-			final IdleManager idleManager = new IdleManager(session, es);
+	public static String getCurrentTime() {
+		Calendar cal = Calendar.getInstance();
+		SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+		return sdf.format(cal.getTime());
+	}
 
-			// watch inbox for new emails
-			// folder.open(Folder.READ_WRITE);
-			folder.addMessageCountListener(new MessageCountAdapter() {
-
-				public void messagesAdded(MessageCountEvent ev) {
-
-					Folder folder = (Folder) ev.getSource();
-					Message[] messages = ev.getMessages();
-
-					// process each message
-					try {
-						for (Message message : messages) {
-							System.out.println("\n[" + Main.getCurrentTime() + "] Received a message with title = " + message.getSubject());
-							// run message through all the strategies
-							for (StrategyHandler strategy : strategyHandlers) {
-								strategy.handleMessage(message);
-								sleep(500); // sleep for half sec between strategies to not exceed limit for Oanda API calls
-							}
-						}
-					} catch (IOException ioe) {
-						System.err.println("Error in C2OBridge.listen->messagesAdded(): " + ioe);
-						ioe.printStackTrace(System.err);
-					} catch (MessagingException me) {
-						System.err.println("Error in C2OBridge.listen->messagesAdded(): " + me);
-						me.printStackTrace(System.err);
-					}
-
-					try {
-						// process new messages
-						idleManager.watch(folder); // keep watching for new messages
-					} catch (MessagingException mex) {
-						System.err.println("MessagingException caught when trying to process new messages:");
-						mex.printStackTrace(System.err);
-					}
-				}
-			});
-			// set idle manager
-			MailSync.setIdleManager(idleManager);
-			idleManager.watch(folder);
-		} catch (IOException ioe) {
-			System.err.println("Error in C2OBridge.listen(): " + ioe);
-			ioe.printStackTrace(System.err);
-		} catch (MessagingException me) {
-			System.err.println("Error in C2OBridge.listen(): " + me);
-			me.printStackTrace(System.err);
-		}
+	public static String getCurrentMinute() {
+		Calendar cal = Calendar.getInstance();
+		SimpleDateFormat sdf = new SimpleDateFormat("mm");
+		return sdf.format(cal.getTime());
 	}
 
 	public static void sleep(long millis) {

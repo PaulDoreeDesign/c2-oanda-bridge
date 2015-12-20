@@ -27,7 +27,7 @@ public class C2OBridge {
 	 * Debug mode = read all emails currently in the inbox and treat as new emails
 	 * Non-debug mode = if there are any emails in inbox upon program start, terminate with warning message
 	 */
-	private static final boolean DEBUG_MODE = false;
+	private static final boolean DEBUG_MODE;
 
 	/** Oanda API details */
 	public static final String OANDA_API_KEY;
@@ -44,6 +44,18 @@ public class C2OBridge {
 
 	// load from props file
 	static {
+		// application settings
+		Properties settings = new Properties();
+		try {
+			settings.load(new FileInputStream(new File("settings.properties")));
+		} catch (IOException ioe) {
+			System.err.println("Error loading config.properties file: " + ioe);
+			ioe.printStackTrace(System.err);
+			System.exit(0);
+		}
+		DEBUG_MODE = Boolean.parseBoolean(settings.getProperty("DEBUG_MODE"));
+
+		// gmail credentials
 		Properties gmailProps = new Properties();
 		try {
 			gmailProps.load(new FileInputStream(new File("gmail.properties")));
@@ -52,10 +64,10 @@ public class C2OBridge {
 			ioe.printStackTrace(System.err);
 			System.exit(0);
 		}
-
 		EMAIL = gmailProps.getProperty("GMAIL_ACC");
 		PASSWORD = gmailProps.getProperty("GMAIL_PASS");
 
+		// oanda credentials
 		Properties oandaProps = new Properties();
 		try {
 			oandaProps.load(new FileInputStream(new File("oanda.properties")));
@@ -64,10 +76,8 @@ public class C2OBridge {
 			ioe.printStackTrace(System.err);
 			System.exit(0);
 		}
-
 		OANDA_API_KEY = oandaProps.getProperty("API_KEY");
 		OANDA_API_URL = oandaProps.getProperty("API_URL");
-
 		COPY_ACC_ID = Integer.parseInt(oandaProps.getProperty("COPY_ACC_ID"));
 		REVERSE_ACC_ID = Integer.parseInt(oandaProps.getProperty("REVERSE_ACC_ID"));
 		SMART_COPY_ACC_ID = Integer.parseInt(oandaProps.getProperty("SMART_COPY_ACC_ID"));
@@ -82,12 +92,12 @@ public class C2OBridge {
 	public C2OBridge() {
 		// initialise the applicable strategies and their account ids
 		this.strategyHandlers = new ArrayList<StrategyHandler>();
-		// smart copy strategy
-		strategyHandlers.add(new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
 		// exact copy strategy
 		strategyHandlers.add(new CopyStrategyHandler(COPY_ACC_ID));
-		// reverse strategy
-		strategyHandlers.add(new ReverseStrategyHandler(REVERSE_ACC_ID));
+		// smart copy strategy
+		strategyHandlers.add(new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
+		// reverse strategy - disabled
+		// strategyHandlers.add(new ReverseStrategyHandler(REVERSE_ACC_ID));
 	}
 
 	/**
@@ -133,8 +143,23 @@ public class C2OBridge {
 				// go through and check all emails
 				System.out.println("Checking current messages in inbox:");
 				Message[] messages = inbox.getMessages();
-				for (Message message : messages) {
-					System.out.println("Title: " + message.getSubject());
+				if (messages.length > 0) {
+					if (!DEBUG_MODE) {
+						System.out.println("There are undeleted messages in the inbox. Terminating...");
+						System.exit(0);
+						return;
+					} else {
+						// go through all the messages
+						for (Message m : messages) {
+							System.out.println("Title: " + m.getSubject());
+						}
+					}
+				}
+				if (DEBUG_MODE) {
+					// this is where it ends for debug mode
+					System.out.println("Was run in debug mode, terminating...");
+					System.exit(0);
+					return;
 				}
 
 				// setup keep-alive thread

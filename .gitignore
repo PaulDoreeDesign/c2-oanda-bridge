@@ -15,3 +15,5 @@ err_log.txt
 ## smart copy records and log
 smartcopy_log.txt
 smartcopy.properties
+
+## actual jar file

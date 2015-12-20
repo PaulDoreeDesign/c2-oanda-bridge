@@ -135,6 +135,7 @@ public class C2OBridge {
 				} catch (NoSuchProviderException ne) {
 					Logger.error("No such error exception wtf? " + ne);
 					ne.printStackTrace(Logger.err);
+					crash();
 					return;
 				}
 				store.connect("smtp.gmail.com", EMAIL + "@gmail.com", PASSWORD);
@@ -185,7 +186,9 @@ public class C2OBridge {
 							// process each message
 							try {
 								for (Message message : messages) {
-									Logger.info("\n[" + getCurrentTime() + "] Received a message with title = " + message.getSubject());
+									System.out.println();
+									Logger.out.println();
+									Logger.info("Received a message with title = " + message.getSubject());
 									for (StrategyHandler strategy : app.strategyHandlers) {
 										strategy.handleMessage(message);
 										sleep(1000); // sleep 1 sec between strategies to not exceed limit for Oanda API calls
@@ -256,6 +259,8 @@ public class C2OBridge {
 		// notify logger to flush output files and close
 		Logger.shutdown();
 		sleep(3000); // sleep for 3 seconds anyway, just in case
+		// finally, system.exit
+		System.exit(1);
 	}
 
 	public static String getCurrentTime() {

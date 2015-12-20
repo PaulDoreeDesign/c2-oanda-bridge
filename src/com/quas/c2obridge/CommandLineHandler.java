@@ -31,7 +31,7 @@ public class CommandLineHandler implements Runnable {
 					Logger.shutdown();
 					C2OBridge.sleep(3000); // sleep for 3 seconds anyway, just in case
 					Logger.console("[C2OBridge] Shutdown successfully.");
-					C2OBridge.crash();
+					System.exit(0);
 				} else {
 					Logger.console("[C2OBridge] Unrecognised command.");
 				}

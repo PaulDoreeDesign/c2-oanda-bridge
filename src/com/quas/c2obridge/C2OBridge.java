@@ -119,8 +119,8 @@ public class C2OBridge {
 		new Thread(new CommandLineHandler(app)).start();
 
 		try {
-			for (int i = 0; i < 100; i++) {
-				Logger.info("[ATTEMPT #" + (i + 1) + "] Connecting to mail server:");
+			for (int i = 1; i <= 100; i++) {
+				Logger.info("[ATTEMPT #" + i + "] Connecting to mail server:");
 				// load gmail mailserver properties and connect to it
 				Properties props = new Properties();
 				FileInputStream fis = new FileInputStream(new File("smtp.properties"));
@@ -147,7 +147,7 @@ public class C2OBridge {
 				// go through and check all emails
 				Logger.info("Checking current messages in inbox:");
 				Message[] messages = inbox.getMessages();
-				if (messages.length > 0) {
+				if (messages.length > 0 && i == 1) { // only require empty inbox on initial load, obviously
 					if (!DEBUG_MODE) {
 						Logger.info("There are undeleted messages in the inbox. Terminating...");
 						crash();
@@ -228,7 +228,7 @@ public class C2OBridge {
 					inbox.close(false);
 					idleManager.stop();
 					es.shutdownNow();
-					Logger.info("---------------------------\nRestarting everything now---------------------------\n");
+					Logger.info("Restarting everything now");
 
 				} catch (IOException ioe) {
 					Logger.error("Error in ConnectionTest->main() (1): " + ioe);

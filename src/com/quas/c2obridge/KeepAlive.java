@@ -30,8 +30,8 @@ public class KeepAlive implements Runnable {
 				String minute = C2OBridge.getCurrentMinute();
 				int minuteInt = Integer.parseInt(minute);
 				if (minuteInt % 60 == 0) {
-					Logger.out.println("-----------------------------\n| NEW HOUR (" + C2OBridge.getCurrentTime() + ") |\n-----------------------------");
-					System.out.println("-----------------------------\n| NEW HOUR (" + C2OBridge.getCurrentTime() + ") |\n-----------------------------"); // special case
+					Logger.out.println("\n-----------------------\n| NEW HOUR (" + C2OBridge.getCurrentTime() + ") |\n-----------------------");
+					System.out.println("\n-----------------------\n| NEW HOUR (" + C2OBridge.getCurrentTime() + ") |\n-----------------------"); // special case
 				} else {
 					Logger.out.print(minute + " ");
 					System.out.print(minute + " "); // special case

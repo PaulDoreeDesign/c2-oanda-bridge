@@ -172,11 +172,14 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 	 */
 	@Override
 	public void handleInfo(String action, String side, int psize, String pair, double oprice) throws IOException {
+		// initial info log
+		Logger.info("[SmartCopyStrategy] Starting to handle trade: pair = " + pair + ", action = " + action);
+
 		// get our account balance in account currency at the very start
 		double accountBalance = getAccountBalance();
 
 		double curPrice = getOandaPrice(side, pair);
-		double diff = roundPips(pair, Math.abs(curPrice - oprice));
+		// double diff = roundPips(pair, Math.abs(curPrice - oprice));
 
 		// get our position sizing
 		int oandaPsize = convert(psize, accountBalance) * POS_SIZE_MULTIPLIER;
@@ -281,19 +284,32 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 			modifyOrder(orderId, stopLoss, NO_TRAILING_STOP);
 			// add pair to currentlyOpen
 			currentlyOpen.add(pair);
+			// log info
+			Logger.info("[SmartCopyStrategy] Created new order for pair [" + pair + "]. Order trigger price: " + oprice + ", units: " + oandaPsize);
 		} else {
 			// try to close all positions for the pair instantly
 			// no checks required - even manually re-entered trades should be closed according to C2 strategy
 
 			// get all trades for this pair
 			ArrayList<JSONObject> list = getTrades(pair); // json of all currently open trades for this pair
+			// get all orders for this pair
+			ArrayList<JSONObject> olist = getOrders(pair);
+
+			if (list.size() > 0 || olist.size() > 0) {
+				String typeString = null;
+				if (list.size() > 0)  typeString = "open positions";
+				if (olist.size() > 0) {
+					if (typeString != null) typeString += " and ";
+					typeString += "outstanding orders";
+				}
+				Logger.info("[SmartCopyStrategy] Closing all " + typeString + " for pair [" + pair + "]");
+			}
+
 			for (JSONObject trade : list) {
 				// close every trade returned for this pair
 				long tradeId = trade.getLong(ID);
 				closeTrade(tradeId);
 			}
-			// get all orders for this pair
-			ArrayList<JSONObject> olist = getOrders(pair);
 			for (JSONObject order : olist) {
 				// close every order returned for this pair
 				long orderId = order.getLong(ID);

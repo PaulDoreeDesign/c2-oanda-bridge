@@ -197,19 +197,21 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 				List<JSONObject> trades = getTrades(pair);
 				List<JSONObject> orders = getOrders(pair);
 				if (trades.size() > 0) { // trade(s) placed and not yet stopped out
-
 					// make sure the stop losses of all the trades are the same
 					double tsl = -1;
 					for (JSONObject t : trades) {
 						if (tsl == -1) tsl = t.getDouble(STOP_LOSS);
-						if (tsl != t.getDouble(STOP_LOSS)) throw new RuntimeException("Not all stop losses of pair " + pair + " are the same");
+						if (tsl != t.getDouble(STOP_LOSS))
+							throw new RuntimeException("Not all stop losses of pair " + pair + " are the same");
 					}
 					double prevStopLoss = tsl;
 					boolean slWithinLimits = false; // flag for whether the stop loss is small enough for our goal risk percentage
 					double onePip = pipsToPrice(pair, 1);
+					double accCurrencyPerPip = getAccCurrencyPerPip(pair);
 					do {
-						tsl -= onePip; // decrement tsl by 1 pip at a time
-						double accCurrencyPerPip = getAccCurrencyPerPip(pair);
+						// decrement (if sell) or increment (if buy) tsl by 1 pip at a time
+						if (side.equals(SELL)) tsl -= onePip;
+						else tsl += onePip; // buy
 						// calculate total risk of all the existing trades + new trade if all their stop losses are set to tsl
 						double totalRiskPrice = 0;
 						for (JSONObject t : trades) {
@@ -246,18 +248,18 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 						modifyTrade(newTradeId, tsl, NO_TRAILING_STOP);
 						// debug message
 						Logger.info("[SmartCopyStrategy] Added to existing position: stop-loss of all trades shifted from " +
-							prevStopLoss + " to " + tsl);
+								prevStopLoss + " to " + tsl);
 					} else {
 						// clash, just print debug message and do nothing
 						Logger.info("[SmartCopyStrategy] C2 added to existing position but we couldn't: stop-loss was at " +
-							prevStopLoss + ", would needed to have been moved to " + tsl + " but couldn't.");
+								prevStopLoss + ", would needed to have been moved to " + tsl + " but couldn't.");
 					}
 				} else if (orders.size() > 0) { // order was placed and is still there, this should rarely ever happen...
 					Logger.info("[SmartCopyStrategy] C2 added to position but our limit order hasn't even popped. Weird! pair = " + pair);
 					// don't do anything else, this is a very rare and strange situation: wait for manual intervention
 				} else { // the pair has definitely been stopped out: remove from currentlyOpen and add to blacklist
 					Logger.info("[SmartCopyStrategy] C2 added to position for pair " + pair +
-						", but our position was already stopped out. Adding [" + pair + "] to blacklist.");
+							", but our position was already stopped out. Adding [" + pair + "] to blacklist.");
 					currentlyOpen.remove(pair);
 					blacklist.add(pair);
 				}
@@ -273,7 +275,8 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 
 			// always place limit order
 			double d = pipsToPrice(pair, LIMIT_ORDER_PIPS_DIFF);
-			if (side.equals(BUY)) d *= -1; // if buy, we want price to be LIMIT_ORDER_PIPS_DIFF pips *LOWER* for advantage
+			if (side.equals(BUY))
+				d *= -1; // if buy, we want price to be LIMIT_ORDER_PIPS_DIFF pips *LOWER* for advantage
 			double bound = oprice + d;
 			double stopLoss = bound; // stopLoss is relative to bound, not curPrice, for limit orders
 			if (side.equals(BUY)) stopLoss -= stopLossPrice;
@@ -297,7 +300,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 
 			if (list.size() > 0 || olist.size() > 0) {
 				String typeString = null;
-				if (list.size() > 0)  typeString = "open positions";
+				if (list.size() > 0) typeString = "open positions";
 				if (olist.size() > 0) {
 					if (typeString != null) typeString += " and ";
 					typeString += "outstanding orders";

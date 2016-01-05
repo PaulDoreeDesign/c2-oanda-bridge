@@ -23,7 +23,7 @@ public interface IStrategyHandler {
 	/** The string to search for which marks the beginning of the relevant section */
 	public static final String SEARCH_START_STRING = "Issued Action Quant Symbol Good Til Model Account Outcome";
 	/** The String to search for which marks the end of the relevant section */
-	public static final String SEARCH_STOP_STRING = "Copyright (C) 2015. All rights reserved.";
+	public static final String SEARCH_STOP_STRING = "Copyright (C)";
 
 	/**
 	 * Assorted useful currencies

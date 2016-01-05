@@ -101,6 +101,7 @@ public class C2OBridge {
 		strategyHandlers.add(new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
 		// reverse strategy - disabled
 		// strategyHandlers.add(new ReverseStrategyHandler(REVERSE_ACC_ID));
+		Logger.info("Number of strategies running: " + strategyHandlers.size());
 	}
 
 	/**
@@ -153,9 +154,13 @@ public class C2OBridge {
 						crash();
 						return;
 					} else {
-						// go through all the messages
+						// go through all the messages and try to process them
 						for (Message m : messages) {
 							Logger.info("Title: " + m.getSubject());
+							for (StrategyHandler strategy : app.strategyHandlers) {
+								strategy.handleMessage(m);
+								sleep(1000);
+							}
 						}
 					}
 				}
@@ -186,7 +191,6 @@ public class C2OBridge {
 							// process each message
 							try {
 								for (Message message : messages) {
-									System.out.println();
 									Logger.out.println();
 									Logger.info("Received a message with title = " + message.getSubject());
 									for (StrategyHandler strategy : app.strategyHandlers) {

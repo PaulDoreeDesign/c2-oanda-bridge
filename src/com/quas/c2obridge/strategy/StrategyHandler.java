@@ -47,6 +47,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	 */
 	@Override
 	public final void handleMessage(Message message) throws MessagingException, IOException {
+		Logger.info("StrategyHandler.handleMessage() invoked");
 		String subject = message.getSubject();
 		if (subject.equals(SUBJECT_FIND)) { // signal message
 			BufferedReader reader = new BufferedReader(new InputStreamReader(message.getInputStream()));
@@ -144,6 +145,8 @@ public abstract class StrategyHandler implements IStrategyHandler {
 				Logger.error("Extraction failed, entire line = " + relevant + ", index 0 = " + parts[0]);
 				re.printStackTrace(Logger.err);
 			}
+		} else {
+			Logger.info("Not a trade message, ignoring.");
 		}
 	}
 

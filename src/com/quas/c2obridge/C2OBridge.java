@@ -99,8 +99,8 @@ public class C2OBridge {
 		strategyHandlers.add(new CopyStrategyHandler(COPY_ACC_ID));
 		// smart copy strategy
 		strategyHandlers.add(new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
-		// reverse strategy - disabled
-		// strategyHandlers.add(new ReverseStrategyHandler(REVERSE_ACC_ID));
+		// reverse strategy
+		strategyHandlers.add(new ReverseStrategyHandler(REVERSE_ACC_ID));
 		Logger.info("Number of strategies running: " + strategyHandlers.size());
 	}
 

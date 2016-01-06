@@ -14,14 +14,14 @@ import java.io.IOException;
  */
 public class ReverseStrategyHandler extends StrategyHandler {
 
-	/** Multiplier applied against C2 position sizing */
-	private static final int POS_SIZE_MULTIPLIER = 3;
+	/** Percentage of account to risk with every trade */
+	private static final int RISK_PERCENTAGE_PER_TRADE = 5;
 
-	/** Stop-loss in pips */
+	/** Initial stop-loss in pips */
 	private static final int STOP_LOSS = 15;
 
 	/** Trailing stop-loss in pips */
-	private static final int TRAILING_STOP_LOSS = 15;
+	private static final int TRAILING_STOP_LOSS = 30;
 
 	/**
 	 * Constructor for the reverse strategy.
@@ -46,16 +46,21 @@ public class ReverseStrategyHandler extends StrategyHandler {
 		double diff = roundPips(pair, Math.abs(curPrice - oprice));
 
 		if (action.equals(OPEN)) {
-			// flip side first
+			// flip side
 			side = side.equals(BUY) ? SELL : BUY;
 
 			// diff = difference between C2's opening price and oanda's current price, in pips
 			if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && curPrice < oprice) || (side.equals(SELL) && curPrice > oprice)) {
 				// pip difference is at most positive 5 pips (in direction of C2's favour), so try to place an order
 
-				double balance =getAccountBalance();
-				// get our position sizing
-				int oandaPsize = convert(psize, balance) * POS_SIZE_MULTIPLIER;
+				// fetch balance
+				double balance = getAccountBalance();
+
+				// figure out position sizing, with relation to RISK_PERCENTAGE_PER_TRADE and STOP_LOSS
+				double accCurrencyPerPip = getAccCurrencyPerPip(pair); // each pip of this pair is worth how much $AUD assuming position size 1
+				double accCurrencyRisk = balance * (RISK_PERCENTAGE_PER_TRADE / 100D); // how many $AUD for RISK_PERCENTAGE_PER_TRADE % risk
+				int oandaPsize = (int) (accCurrencyRisk / (accCurrencyPerPip * STOP_LOSS));
+
 				// actually place the trade
 				long id = openTrade(side, oandaPsize, pair); // id = id of the trade that is returned once it is placed
 

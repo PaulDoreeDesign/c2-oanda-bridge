@@ -98,17 +98,6 @@ public class Connector {
 		} catch (IOException ioe) {
 			Logger.error("Error in Connector's constructor: " + ioe);
 			ioe.printStackTrace(Logger.err);
-			// get error stream
-			BufferedReader errReader = new BufferedReader(new InputStreamReader(con.getErrorStream()));
-			String errLine;
-			try {
-				while ((errLine = errReader.readLine()) != null) {
-					Logger.error("Error message: " + errLine);
-				}
-			} catch (IOException ioei) {
-				Logger.error("Unable to fetch error message: " + ioei);
-				ioei.printStackTrace(Logger.err);
-			}
 		}
 	}
 
@@ -125,6 +114,17 @@ public class Connector {
 		} catch (IOException ioe) {
 			Logger.error("Error trying to read in Connector (url = " + urlString + ", writeString = " + writeString + "): " + ioe);
 			ioe.printStackTrace(Logger.err);
+			// get and print error stream
+			BufferedReader errReader = new BufferedReader(new InputStreamReader(con.getErrorStream()));
+			String errLine;
+			try {
+				while ((errLine = errReader.readLine()) != null) {
+					Logger.error("Error message: " + errLine);
+				}
+			} catch (IOException ioei) {
+				Logger.error("Unable to fetch error message: " + ioei);
+				ioei.printStackTrace(Logger.err);
+			}
 			return null;
 		}
 	}

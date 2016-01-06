@@ -47,7 +47,6 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	 */
 	@Override
 	public final void handleMessage(Message message) throws MessagingException, IOException {
-		Logger.info("StrategyHandler.handleMessage() invoked");
 		String subject = message.getSubject();
 		if (subject.equals(SUBJECT_FIND)) { // signal message
 			BufferedReader reader = new BufferedReader(new InputStreamReader(message.getInputStream()));

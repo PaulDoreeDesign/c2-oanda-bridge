@@ -1,8 +1,10 @@
 package com.quas.c2obridge.strategy;
 
 import com.quas.c2obridge.Logger;
+import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Strategy #3:
@@ -15,10 +17,10 @@ import java.io.IOException;
 public class ReverseStrategyHandler extends StrategyHandler {
 
 	/** Percentage of account to risk with every trade */
-	private static final int RISK_PERCENTAGE_PER_TRADE = 5;
+	private static final int RISK_PERCENTAGE_PER_TRADE = 2;
 
 	/** Initial stop-loss in pips */
-	private static final int STOP_LOSS = 15;
+	private static final int STOP_LOSS = 30;
 
 	/** Trailing stop-loss in pips */
 	private static final int TRAILING_STOP_LOSS = 30;
@@ -44,6 +46,13 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	public void handleInfo(String action, String side, int psize, String pair, double oprice) throws IOException {
 		double curPrice = getOandaPrice(side, pair);
 		double diff = roundPips(pair, Math.abs(curPrice - oprice));
+
+		// check if any trades for this pair are already opened. if so, ignore
+		List<JSONObject> alreadyOpen = getTrades(pair);
+		if (alreadyOpen.size() > 0) {
+			// return early without doing anything
+			return;
+		}
 
 		if (action.equals(OPEN)) {
 			// flip side

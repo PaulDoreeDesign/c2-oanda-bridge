@@ -40,6 +40,18 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	}
 
 	/**
+	 * Rounds value to 4 decimal places.
+	 */
+	public static double round4(double number) {
+		String[] split = Double.toString(number).split("\\.");
+		String decimals = split[1];
+		if (decimals.length() > 4) {
+			decimals = decimals.substring(0, 4);
+		}
+		return Double.parseDouble(split[0] + "." + decimals);
+	}
+
+	/**
 	 * Extracts the relevant information from the newly-received message, and calls the implementing strategy
 	 * handler.
 	 *

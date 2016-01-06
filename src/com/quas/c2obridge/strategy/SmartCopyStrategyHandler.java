@@ -238,6 +238,9 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 
 					// if no clash
 					if (!clash) {
+						// round new stoploss to 4 decimal places
+						tsl = round4(tsl);
+
 						// modify all existing trades
 						for (JSONObject t : trades) {
 							modifyTrade(t.getLong(ID), tsl, NO_TRAILING_STOP);
@@ -283,8 +286,8 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 			else stopLoss += stopLossPrice;
 			// place the order
 			long orderId = createOrder(side, oandaPsize, pair, bound);
-			// modify the order and give it appropriate stop loss
-			modifyOrder(orderId, stopLoss, NO_TRAILING_STOP);
+			// modify the order to give it appropriate stop loss
+			modifyOrder(orderId, round4(stopLoss), NO_TRAILING_STOP);
 			// add pair to currentlyOpen
 			currentlyOpen.add(pair);
 			// log info

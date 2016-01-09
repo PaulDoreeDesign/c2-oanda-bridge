@@ -125,7 +125,8 @@ public class Connector {
 				Logger.error("Unable to fetch error message: " + ioei);
 				ioei.printStackTrace(Logger.err);
 			}
-			return null;
+			// throw exception out of this method
+			throw new RuntimeException(ioe.getMessage());
 		}
 	}
 }

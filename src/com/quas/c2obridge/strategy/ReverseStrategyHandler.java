@@ -27,10 +27,10 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	private static final int RISK_PERCENTAGE_PER_TRADE = 2;
 
 	/** Initial stop-loss in pips */
-	private static final int STOP_LOSS = 30;
+	private static final int STOP_LOSS = 25;
 
 	/** Trailing stop-loss in pips */
-	private static final int TRAILING_STOP_LOSS = 30;
+	private static final int TRAILING_STOP_LOSS = 50;
 
 	/** Filename for this strategy */
 	private static final String REVERSE_FILE = "reverse.properties";

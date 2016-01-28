@@ -305,8 +305,12 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 				String typeString = null;
 				if (list.size() > 0) typeString = "open positions";
 				if (olist.size() > 0) {
-					if (typeString != null) typeString += " and ";
-					typeString += "outstanding orders";
+					if (typeString != null) {
+						typeString += " and ";
+						typeString += "outstanding orders";
+					} else {
+						typeString = "outstanding orders";
+					}
 				}
 				Logger.info("[SmartCopyStrategy] Closing all " + typeString + " for pair [" + pair + "]");
 			}

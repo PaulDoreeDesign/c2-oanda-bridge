@@ -95,12 +95,12 @@ public class C2OBridge {
 	public C2OBridge() {
 		// initialise the applicable strategies and their account ids
 		this.strategyHandlers = new ArrayList<StrategyHandler>();
-		// exact copy strategy
-		strategyHandlers.add(new CopyStrategyHandler(COPY_ACC_ID));
-		// smart copy strategy
-		strategyHandlers.add(new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
 		// reverse strategy
 		strategyHandlers.add(new ReverseStrategyHandler(REVERSE_ACC_ID));
+		// smart copy strategy
+		strategyHandlers.add(new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
+		// exact copy strategy
+		strategyHandlers.add(new CopyStrategyHandler(COPY_ACC_ID));
 		Logger.info("Number of strategies running: " + strategyHandlers.size());
 	}
 

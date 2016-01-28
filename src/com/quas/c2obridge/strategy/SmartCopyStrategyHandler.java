@@ -155,12 +155,6 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 		}
 	}
 
-	private void validateCurrencyPair(String s) {
-		if (s.length() != 7 || !s.contains("_") || s.split("_").length != 2 || s.split("_")[0].length() != 3) {
-			throw new RuntimeException("invalid currency pair: " + s);
-		}
-	}
-
 	/**
 	 * Called by handleMessage with the info extracted from the email.
 	 *

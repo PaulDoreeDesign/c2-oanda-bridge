@@ -1,10 +1,17 @@
 package com.quas.c2obridge.strategy;
 
+import com.quas.c2obridge.C2OBridge;
 import com.quas.c2obridge.Logger;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Properties;
+import java.util.Set;
 
 /**
  * Strategy #3:
@@ -25,6 +32,15 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	/** Trailing stop-loss in pips */
 	private static final int TRAILING_STOP_LOSS = 30;
 
+	/** Filename for this strategy */
+	private static final String REVERSE_FILE = "reverse.properties";
+
+	/** Property name for currently open on C2 */
+	private static final String OPEN_ON_C2 = "OPEN_ON_C2";
+
+	/** Set that contains all pairs that are currently open on C2 */
+	private Set<String> openOnC2;
+
 	/**
 	 * Constructor for the reverse strategy.
 	 *
@@ -32,6 +48,31 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	 */
 	public ReverseStrategyHandler(int accountId) {
 		super(accountId);
+
+		this.openOnC2 = new HashSet<String>();
+		// load saved data from properties file
+		Properties saveData = new Properties();
+		try {
+			saveData.load(new FileInputStream(new File(REVERSE_FILE)));
+
+			String[] openOnC2Unvalidated = saveData.getProperty(OPEN_ON_C2).split(",");
+			for (String s : openOnC2Unvalidated) {
+				if (s.equals("")) continue;
+				s = s.trim().toUpperCase(); // trim whitespace and uppercase
+				validateCurrencyPair(s); // throws RuntimeException if invalid
+
+				// add to openOnC2
+				openOnC2.add(s);
+			}
+		} catch (IOException ioe) {
+			Logger.error("Error loading reverse.properties save data: " + ioe);
+			ioe.printStackTrace(Logger.err);
+			C2OBridge.crash();
+		} catch (RuntimeException re) {
+			Logger.error("Error loading reverse.properties save data, corruption: " + re);
+			re.printStackTrace(Logger.err);
+			C2OBridge.crash();
+		}
 	}
 
 	/**
@@ -55,37 +96,72 @@ public class ReverseStrategyHandler extends StrategyHandler {
 		}
 
 		if (action.equals(OPEN)) {
-			// flip side
-			side = side.equals(BUY) ? SELL : BUY;
+			// only process if this pair isn't already in openOnC2 (otherwise it means this is an additional trade)
+			if (!openOnC2.contains(pair)) {
+				// add to set
+				openOnC2.add(pair);
 
-			// diff = difference between C2's opening price and oanda's current price, in pips
-			if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && curPrice < oprice) || (side.equals(SELL) && curPrice > oprice)) {
-				// pip difference is at most positive 5 pips (in direction of C2's favour), so try to place an order
+				// flip side
+				side = side.equals(BUY) ? SELL : BUY;
 
-				// fetch balance
-				double balance = getAccountBalance();
+				// diff = difference between C2's opening price and oanda's current price, in pips
+				if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && curPrice < oprice) || (side.equals(SELL) && curPrice > oprice)) {
+					// pip difference is at most positive 5 pips (in direction of C2's favour), so try to place an order
 
-				// figure out position sizing, with relation to RISK_PERCENTAGE_PER_TRADE and STOP_LOSS
-				double accCurrencyPerPip = getAccCurrencyPerPip(pair); // each pip of this pair is worth how much $AUD assuming position size 1
-				double accCurrencyRisk = balance * (RISK_PERCENTAGE_PER_TRADE / 100D); // how many $AUD for RISK_PERCENTAGE_PER_TRADE % risk
-				int oandaPsize = (int) (accCurrencyRisk / (accCurrencyPerPip * STOP_LOSS));
+					// fetch balance
+					double balance = getAccountBalance();
 
-				// actually place the trade
-				long id = openTrade(side, oandaPsize, pair); // id = id of the trade that is returned once it is placed
+					// figure out position sizing, with relation to RISK_PERCENTAGE_PER_TRADE and STOP_LOSS
+					double accCurrencyPerPip = getAccCurrencyPerPip(pair); // each pip of this pair is worth how much $AUD assuming position size 1
+					double accCurrencyRisk = balance * (RISK_PERCENTAGE_PER_TRADE / 100D); // how many $AUD for RISK_PERCENTAGE_PER_TRADE % risk
+					int oandaPsize = (int) (accCurrencyRisk / (accCurrencyPerPip * STOP_LOSS));
 
-				// modify the trade to give it a stop-loss
-				double stopLoss = curPrice;
-				double netPips = pipsToPrice(pair, STOP_LOSS);
-				if (side.equals(BUY)) stopLoss -= netPips;
-				else stopLoss += netPips;
+					// actually place the trade
+					long id = openTrade(side, oandaPsize, pair); // id = id of the trade that is returned once it is placed
 
-				modifyTrade(id, stopLoss, TRAILING_STOP_LOSS);
-			} else {
-				// missed opportunity
-				Logger.error("[ReverseStrategy] missed opportunity to place order to " + side + " " + pair + " (pip diff = " + diff +
-						" - actiontype = " + side + ", curPrice = " + curPrice + ", oprice = " + oprice + ")");
+					// modify the trade to give it a stop-loss
+					double stopLoss = curPrice;
+					double netPips = pipsToPrice(pair, STOP_LOSS);
+					if (side.equals(BUY)) stopLoss -= netPips;
+					else stopLoss += netPips;
+
+					modifyTrade(id, stopLoss, TRAILING_STOP_LOSS);
+				} else {
+					// missed opportunity
+					Logger.error("[ReverseStrategy] missed opportunity to place order to " + side + " " + pair + " (pip diff = " + diff +
+							" - actiontype = " + side + ", curPrice = " + curPrice + ", oprice = " + oprice + ")");
+					// @TODO set limit orders for missed opportunities
+				}
 			}
+		} else {
+			// mark as closed, remove from openOnC2
+			openOnC2.remove(pair);
 		}
-		// reverse strategy does not close trades manually - always wait to hit stop-loss (trailing or initial)
+	}
+
+	/**
+	 * Shuts down the strategy. Saves openOnC2 data.
+	 */
+	@Override
+	public final void shutdown() {
+		Properties props = new Properties();
+		String c = "";
+		for (String s : openOnC2) {
+			if (c.length() > 0) {
+				c += ",";
+			}
+			c += s;
+		}
+		props.put(OPEN_ON_C2, c);
+
+		// save to file
+		try {
+			FileOutputStream fos = new FileOutputStream(REVERSE_FILE);
+			props.store(fos, null);
+			fos.close();
+		} catch (IOException ioe) {
+			Logger.error("Unable to save SmartCopy strategy data: " + ioe);
+			ioe.printStackTrace(Logger.err);
+		}
 	}
 }

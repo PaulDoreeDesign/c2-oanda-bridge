@@ -52,6 +52,17 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	}
 
 	/**
+	 * Validates the given pair by throwing an exception if it's invalid.
+	 *
+	 * @param s the pair string
+	 */
+	public final void validateCurrencyPair(String s) {
+		if (s.length() != 7 || !s.contains("_") || s.split("_").length != 2 || s.split("_")[0].length() != 3) {
+			throw new RuntimeException("invalid currency pair: " + s);
+		}
+	}
+
+	/**
 	 * Extracts the relevant information from the newly-received message, and calls the implementing strategy
 	 * handler.
 	 *

@@ -84,7 +84,8 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	 * @param pair the currency pair being traded
 	 * @param oprice the price at which C2 opened the position
 	 */
-	public void handleInfo(String action, String side, int psize, String pair, double oprice) throws IOException {
+	@Override
+	public final void handleInfo(String action, String side, int psize, String pair, double oprice) throws IOException {
 		double curPrice = getOandaPrice(side, pair);
 		double diff = roundPips(pair, Math.abs(curPrice - oprice));
 
@@ -125,7 +126,27 @@ public class ReverseStrategyHandler extends StrategyHandler {
 					if (side.equals(BUY)) stopLoss -= netPips;
 					else stopLoss += netPips;
 
+					// give it initial stop loss and the trailing stop loss. no take profit
 					modifyTrade(id, stopLoss, TRAILING_STOP_LOSS);
+
+					// commented lines below are for splitting reverse strategy into take-profit and trailing-stop
+					/*
+					// work out the take profit
+					double takeProfit = curPrice;
+					netPips = pipsToPrice(pair, STOP_LOSS * 2);
+					if (side.equals(BUY)) takeProfit += netPips;
+					else takeProfit -= netPips;
+					if (isTrailingReverseStrategy()) {
+						// give it initial stop loss and the trailing stop loss. no take profit
+						modifyTrade(id, stopLoss, TRAILING_STOP_LOSS);
+					} else if (isTakeProfitReverseStrategy()) {
+						// give it initial stop loss but no trailing stop loss. give it take profit
+						modifyTrade(id, stopLoss, NO_TRAILING_STOP);
+						setTakeProfit(id, takeProfit);
+					} else {
+						throw new RuntimeException("Both isTrailingReverseStrategy() and isTakeProfitReverseStrategy() return false");
+					}
+					*/
 				} else {
 					// missed opportunity
 					Logger.error("[ReverseStrategy] missed opportunity to place order to " + side + " " + pair + " (pip diff = " + diff +
@@ -160,7 +181,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 			props.store(fos, null);
 			fos.close();
 		} catch (IOException ioe) {
-			Logger.error("Unable to save SmartCopy strategy data: " + ioe);
+			Logger.error("Unable to save ReverseStrategy data: " + ioe);
 			ioe.printStackTrace(Logger.err);
 		}
 	}

@@ -415,8 +415,20 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		}
 		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/trades/" + tradeId, Connector.PATCH, OANDA_API_KEY, params);
 		String response = con.getResponse();
-		// @TODO check response to make sure close was successful
-		// @TODO verify that this method works
+		C2OBridge.sleep(500); // sleep for half a second after every request
+	}
+
+	/**
+	 * Modifies an existing trade, giving it a take profit price.
+	 *
+	 * @param tradeId the id of the trade to modify
+	 * @param takeProfit the price at which to take profit and close out the trade automatically
+	 */
+	public void setTakeProfit(long tradeId, double takeProfit) {
+		HashMap<String, String> params = new LinkedHashMap<String, String>();
+		params.put(TAKE_PROFIT, Double.toString(takeProfit));
+		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/trades/" + tradeId, Connector.PATCH, OANDA_API_KEY, params);
+		String response = con.getResponse();
 		C2OBridge.sleep(500); // sleep for half a second after every request
 	}
 

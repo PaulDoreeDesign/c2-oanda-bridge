@@ -26,6 +26,9 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	/** Percentage of account to risk with every trade */
 	private static final int RISK_PERCENTAGE_PER_TRADE = 2;
 
+	/** Custom pip diff for reverse strategy only */
+	private static final int REVERSE_MAX_PIP_DIFF = 10; // 10 pips
+
 	/** Initial stop-loss in pips */
 	private static final int STOP_LOSS = 25;
 
@@ -106,7 +109,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 				side = side.equals(BUY) ? SELL : BUY;
 
 				// diff = difference between C2's opening price and oanda's current price, in pips
-				if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && curPrice < oprice) || (side.equals(SELL) && curPrice > oprice)) {
+				if (diff <= REVERSE_MAX_PIP_DIFF || (side.equals(BUY) && curPrice < oprice) || (side.equals(SELL) && curPrice > oprice)) {
 					// pip difference is at most positive 5 pips (in direction of C2's favour), so try to place an order
 
 					// fetch balance

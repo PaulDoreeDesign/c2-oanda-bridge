@@ -126,6 +126,13 @@ public class ReverseStrategyHandler extends StrategyHandler {
 					if (side.equals(BUY)) stopLoss -= netPips;
 					else stopLoss += netPips;
 
+					// round stop loss to 4 decimal places (non-JPY pairs) or 2 decimal places (JPY pairs)
+					if (pair.contains(JPY)) {
+						stopLoss = round2(stopLoss);
+					} else {
+						stopLoss = round4(stopLoss);
+					}
+
 					// give it initial stop loss and the trailing stop loss. no take profit
 					modifyTrade(id, stopLoss, TRAILING_STOP_LOSS);
 

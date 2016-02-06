@@ -45,10 +45,38 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	public static double round4(double number) {
 		String[] split = Double.toString(number).split("\\.");
 		String decimals = split[1];
+		boolean extraPip = false; // true = round up
 		if (decimals.length() > 4) {
 			decimals = decimals.substring(0, 4);
+			int fifthDecimalPlace = Integer.parseInt(decimals.substring(4, 5));
+			extraPip = (fifthDecimalPlace >= 5);
 		}
-		return Double.parseDouble(split[0] + "." + decimals);
+		double ret = Double.parseDouble(split[0] + "." + decimals);
+		if (extraPip) {
+			ret += 0.0001d;
+		}
+		Logger.info("round4(" + number + ") returned " + ret);
+		return ret;
+	}
+
+	/**
+	 * Rounds value to 2 decimal places.
+	 */
+	public static double round2(double number) {
+		String[] split = Double.toString(number).split("\\.");
+		String decimals = split[1];
+		boolean extraPip = false; // true = round up
+		if (decimals.length() > 2) {
+			decimals = decimals.substring(0, 2);
+			int thirdDecimalPlace = Integer.parseInt(decimals.substring(2, 3));
+			extraPip = (thirdDecimalPlace >= 5);
+		}
+		double ret = Double.parseDouble(split[0] + "." + decimals);
+		if (extraPip) {
+			ret += 0.01d;
+		}
+		Logger.info("round2(" + number + ") returned " + ret);
+		return ret;
 	}
 
 	/**
@@ -151,9 +179,10 @@ public abstract class StrategyHandler implements IStrategyHandler {
 					if (!multi || action.equals(CLOSE)) {
 						try {
 							handleInfo(action, side, psize, pair, oprice);
-						} catch(IOException ioe) {
-							Logger.error("Error in StrategyHandler.handleInfo: " + ioe);
-							ioe.printStackTrace(Logger.err);
+						} catch(Exception e) {
+							// catch ALL exceptions: handleInfo can throw IOExceptions AND RuntimeExceptions
+							Logger.error("Error in StrategyHandler.handleInfo: " + e);
+							e.printStackTrace(Logger.err);
 						}
 					}
 
@@ -205,7 +234,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		JSONObject json = new JSONObject(response).getJSONArray("prices").getJSONObject(0);
 		double ask = json.getDouble("ask");
 		double bid = json.getDouble("bid");
-		double ret = (side == BUY) ? ask : bid;
+		double ret = (side.equals(BUY)) ? ask : bid;
 		C2OBridge.sleep(500); // sleep for half a second after every request
 		return ret;
 	}

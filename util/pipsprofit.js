@@ -40,7 +40,7 @@ function calc(pipsProfit) {
 
             if (pipsGained <= pipsProfit) {
                 withinPipsProfitLimit++;
-                if (units <= 100) {
+                if (units <= 60) {
                     withinLimitAndLessThan100++;
                 }
             }
@@ -50,7 +50,7 @@ function calc(pipsProfit) {
         }
     }
     console.log('Profitable trades less than ' + pipsProfit + ' pips profit: ' + withinPipsProfitLimit + ' (' + Math.round(withinPipsProfitLimit / profitableTrades * 100) + '%)');
-    console.log('Profitable trades within limit AND less than 100 units: ' + withinLimitAndLessThan100 + ' (' + Math.round(withinLimitAndLessThan100 / profitableTrades * 100) + '%)');
+    console.log('Profitable trades within limit AND less than units: ' + withinLimitAndLessThan100 + ' (' + Math.round(withinLimitAndLessThan100 / profitableTrades * 100) + '%)');
     console.log('Profitable trades with drawdown greater than ' + pipsProfit + ' pips: ' + drawdownGreaterThanPips + ' (' + Math.round(drawdownGreaterThanPips / profitableTrades * 100) + '%)');
     console.log('----------');
 }

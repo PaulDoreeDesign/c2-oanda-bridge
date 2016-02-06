@@ -246,6 +246,11 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 						// debug message
 						Logger.info("[SmartCopyStrategy] Added to existing position: stop-loss of all trades shifted from " +
 								prevStopLoss + " to " + tsl);
+
+						// try and work out why no round2 is needed for JPY pairs here
+						if (pair.contains(JPY)) {
+							Logger.info("[SmartCopyStrategy] Modified trade for JPY pair (" + pair + ") with stopLoss of " + tsl + ", no error");
+						}
 					} else {
 						// clash, just print debug message and do nothing
 						Logger.info("[SmartCopyStrategy] C2 added to existing position but we couldn't: stop-loss was at " +

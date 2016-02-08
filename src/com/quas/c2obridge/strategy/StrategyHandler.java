@@ -44,11 +44,12 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	 */
 	public static double round4(double number) {
 		String[] split = Double.toString(number).split("\\.");
-		String decimals = split[1];
+		String decimalsOriginal = split[1];
+		String decimals = decimalsOriginal;
 		boolean extraPip = false; // true = round up
 		if (decimals.length() > 4) {
-			decimals = decimals.substring(0, 4);
-			int fifthDecimalPlace = Integer.parseInt(decimals.substring(4, 5));
+			decimals = decimalsOriginal.substring(0, 4);
+			int fifthDecimalPlace = Integer.parseInt(decimalsOriginal.substring(4, 5));
 			extraPip = (fifthDecimalPlace >= 5);
 		}
 		double ret = Double.parseDouble(split[0] + "." + decimals);
@@ -64,11 +65,12 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	 */
 	public static double round2(double number) {
 		String[] split = Double.toString(number).split("\\.");
-		String decimals = split[1];
+		String decimalsOriginal = split[1];
+		String decimals = decimalsOriginal;
 		boolean extraPip = false; // true = round up
-		if (decimals.length() > 2) {
-			decimals = decimals.substring(0, 2);
-			int thirdDecimalPlace = Integer.parseInt(decimals.substring(2, 3));
+		if (decimalsOriginal.length() > 2) {
+			decimals = decimalsOriginal.substring(0, 2);
+			int thirdDecimalPlace = Integer.parseInt(decimalsOriginal.substring(2, 3));
 			extraPip = (thirdDecimalPlace >= 5);
 		}
 		double ret = Double.parseDouble(split[0] + "." + decimals);

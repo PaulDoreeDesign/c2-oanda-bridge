@@ -12,9 +12,11 @@ smtp.properties
 ## log files
 *.txt
 
-## smart copy records and log
-smartcopy_log.txt
+## smart copy props
 smartcopy.properties
+
+## reverse copy props
+reverse.properties
 
 ## actual jar file
 c2-oanda-bridge.jar

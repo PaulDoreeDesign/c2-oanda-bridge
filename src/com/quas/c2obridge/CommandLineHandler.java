@@ -49,16 +49,16 @@ public class CommandLineHandler implements Runnable {
 							Logger.console("Reverse needs more arguments...");
 						} else if (args[1].equals("test")) {
 							Logger.console("Attempting to make a test transaction...");
-							// try and buy 1 unit of AUD_USD from reverse account
-							long tradeId = reverseStrat.openTrade(StrategyHandler.BUY, 1, CurrencyPairs.getPair("AUD", "USD"));
-							Logger.console("Successfully bought [1 unit] of [AUD/USD] with current config. Sleeping for 5 sec then closing the test trade...");
+							// try and buy 1 unit of gold from reverse account
+							long tradeId = reverseStrat.openTrade(StrategyHandler.BUY, 1, "XAU_USD");
+							Logger.console("Successfully bought [1 unit] of [XAU/USD] with current config. Sleeping for 5 sec then closing the test trade...");
 							C2OBridge.sleep(5000); // sleep for 5 sec then close the trade
 							reverseStrat.closeTrade(tradeId);
 							Logger.console("Closed trade. Test complete.");
 						} else if (args[1].equalsIgnoreCase(StrategyHandler.BUY) || args[1].equalsIgnoreCase(StrategyHandler.SELL)) {
 							if (args.length < 5) {
 								Logger.console("Invalid syntax: use 'reverse [buy/sell] [first currency] [second currency] [numUnits]'");
-								return;
+								continue;
 							}
 							// actually try and make the trade
 							String side = args[1].toLowerCase();
@@ -66,7 +66,7 @@ public class CommandLineHandler implements Runnable {
 							String cur2 = args[3].toUpperCase();
 							if (!CurrencyPairs.isPair(cur1, cur2)) {
 								Logger.console("[" + cur1 + " / " + cur2 + "] is not a valid currency pair. Try again.");
-								return;
+								continue;
 							}
 							String pair = CurrencyPairs.getPair(cur1, cur2);
 							int units;
@@ -74,7 +74,7 @@ public class CommandLineHandler implements Runnable {
 								units = Integer.parseInt(args[4]);
 							} catch (RuntimeException re) { // includes NFEs
 								Logger.console("Error parsing units: " + re + ", " + re.getMessage());
-								return;
+								continue;
 							}
 							// open the unreverse trade if possible
 							String error = reverseStrat.canUnreverse(pair, units);

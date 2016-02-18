@@ -115,19 +115,19 @@ public class ReverseStrategyHandler extends StrategyHandler {
 		ArrayList<JSONObject> list = getTrades(pair);
 		for (JSONObject trade : list) {
 			if (trade.getString(INSTRUMENT).equals(pair)) {
-				reason += "\n- pair is currently being reverse traded";
+				reason += "pair is currently being reverse traded, ";
 				break;
 			}
 		}
 
 		if (!openOnC2.contains(pair)) {
-			reason += "\n- pair is NOT currently open on C2";
+			reason += "pair is NOT currently open on C2, ";
 		}
 		if (unreversed.contains(pair)) {
-			reason += "\n- pair has ALREADY been unreversed";
+			reason += "pair has ALREADY been unreversed, ";
 		}
 		if  (units > MAX_UNREVERSE_TRADE_UNITS) {
-			reason += "\n- unreverse trade size cannot exceed the maximum of " + MAX_UNREVERSE_TRADE_UNITS + " units";
+			reason += "unreverse trade size cannot exceed the maximum of " + MAX_UNREVERSE_TRADE_UNITS + " units, ";
 		}
 		return reason;
 	}

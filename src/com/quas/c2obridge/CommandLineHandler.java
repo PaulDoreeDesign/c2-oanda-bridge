@@ -1,5 +1,6 @@
 package com.quas.c2obridge;
 
+import com.quas.c2obridge.strategy.ReverseStrategyHandler;
 import com.quas.c2obridge.strategy.StrategyHandler;
 
 import java.io.BufferedReader;
@@ -43,19 +44,48 @@ public class CommandLineHandler implements Runnable {
 					String[] args = line.split(" ");
 					String strategy = args[0];
 					if (strategy.equals("reverse")) {
-						StrategyHandler reverseStrat = strategies.get(C2OBridge.REVERSE);
-						if (args[1].equals("test")) {
-							Logger.info("Attempting to make a test transaction...");
+						ReverseStrategyHandler reverseStrat = (ReverseStrategyHandler) strategies.get(C2OBridge.REVERSE);
+						if (args.length == 1) {
+							Logger.console("Reverse needs more arguments...");
+						} else if (args[1].equals("test")) {
+							Logger.console("Attempting to make a test transaction...");
 							// try and buy 1 unit of AUD_USD from reverse account
 							long tradeId = reverseStrat.openTrade(StrategyHandler.BUY, 1, CurrencyPairs.getPair("AUD", "USD"));
-							Logger.info("Successfully bought [1 unit] of [AUD/USD] with current config.");
-							C2OBridge.sleep(1000); // sleep for a second then close the trade
+							Logger.console("Successfully bought [1 unit] of [AUD/USD] with current config. Sleeping for 5 sec then closing the test trade...");
+							C2OBridge.sleep(5000); // sleep for 5 sec then close the trade
 							reverseStrat.closeTrade(tradeId);
-							Logger.info("Closed trade. Test complete.");
+							Logger.console("Closed trade. Test complete.");
 						} else if (args[1].equalsIgnoreCase(StrategyHandler.BUY) || args[1].equalsIgnoreCase(StrategyHandler.SELL)) {
+							if (args.length < 5) {
+								Logger.console("Invalid syntax: use 'reverse [buy/sell] [first currency] [second currency] [numUnits]'");
+								return;
+							}
+							// actually try and make the trade
 							String side = args[1].toLowerCase();
+							String cur1 = args[2].toUpperCase();
+							String cur2 = args[3].toUpperCase();
+							if (!CurrencyPairs.isPair(cur1, cur2)) {
+								Logger.console("[" + cur1 + " / " + cur2 + "] is not a valid currency pair. Try again.");
+								return;
+							}
+							String pair = CurrencyPairs.getPair(cur1, cur2);
+							int units;
+							try {
+								units = Integer.parseInt(args[4]);
+							} catch (RuntimeException re) { // includes NFEs
+								Logger.console("Error parsing units: " + re + ", " + re.getMessage());
+								return;
+							}
+							// open the unreverse trade if possible
+							String error = reverseStrat.canUnreverse(pair, units);
+							if (error.equals("")) { // no error, can unreverse
+								reverseStrat.openUnreverseTrade(side, units, pair);
+								Logger.console("Successfully opened an unreverse trade. Side: " + side + ", units: " + units + ", pair: " + pair);
+							} else {
+								Logger.console("Can't open unreverse trade for the following reasons:" + error); // print the error to console
+							}
 						} else {
-
+							Logger.console("Invalid reverse command. Check your syntax and try again.");
 						}
 					} else {
 						Logger.console("[C2OBridge] Unrecognised command.");
@@ -65,7 +95,8 @@ public class CommandLineHandler implements Runnable {
 		} catch (IOException ioe) {
 			Logger.console("IOException caught while trying to read commandline. Shouldn't be a problem if app is shutting down.");
 		} catch (RuntimeException re) {
-			Logger
+			Logger.console("Something went wrong when processing command... " + re);
+			re.printStackTrace(Logger.err);
 		}
 	}
 }

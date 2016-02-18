@@ -47,7 +47,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		String decimalsOriginal = split[1];
 		String decimals = decimalsOriginal;
 		boolean extraPip = false; // true = round up
-		if (decimals.length() > 4) {
+		if (decimalsOriginal.length() > 4) {
 			decimals = decimalsOriginal.substring(0, 4);
 			int fifthDecimalPlace = Integer.parseInt(decimalsOriginal.substring(4, 5));
 			extraPip = (fifthDecimalPlace >= 5);

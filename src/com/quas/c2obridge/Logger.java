@@ -47,7 +47,7 @@ public class Logger {
 	 *
 	 * @return the PrintStream object for the info log
 	 */
-	public static PrintStream out() {
+	public synchronized static PrintStream out() {
 		return out;
 	}
 
@@ -56,7 +56,7 @@ public class Logger {
 	 *
 	 * @return the PrintStream object for the error log
 	 */
-	public static PrintStream err() {
+	public synchronized static PrintStream err() {
 		return err;
 	}
 
@@ -65,7 +65,7 @@ public class Logger {
 	 *
 	 * @param msg the message to log
 	 */
-	public static void console(String msg) {
+	public synchronized static void console(String msg) {
 		System.out.println(time() + msg);
 	}
 
@@ -74,7 +74,7 @@ public class Logger {
 	 *
 	 * @param msg the message to log
 	 */
-	public static void info(String msg) {
+	public synchronized static void info(String msg) {
 		console(msg);
 		out.println(time() + msg);
 	}
@@ -84,7 +84,7 @@ public class Logger {
 	 *
 	 * @param msg the message to log
 	 */
-	public static void error(String msg) {
+	public synchronized static void error(String msg) {
 		info(msg);
 		err.println(time() + msg);
 	}
@@ -92,7 +92,7 @@ public class Logger {
 	/**
 	 * Notifies the logger that the application is shutting down. Flushes output and closes open files.
 	 */
-	public static void shutdown() {
+	public synchronized static void shutdown() {
 		try {
 			out.flush();
 			err.flush();
@@ -109,7 +109,7 @@ public class Logger {
 	 *
 	 * @return the current time as a string
 	 */
-	private static String time() {
+	private synchronized static String time() {
 		return "[" + C2OBridge.getCurrentTime() + "] ";
 	}
 }

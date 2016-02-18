@@ -8,16 +8,14 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Strategy #3:
  * - does the exact opposite of what the C2 strategy provider does
- * - initial stop-loss flat 15 pips for now, equivalent to ~$1000 when position size of C2 = 1,000,000 (100 x 10,000)
- * - no take-profit: use trailing stop-loss of 30 pips
+ * - initial stop-loss flat 25 pips
+ * - no take-profit: use trailing stop-loss of 50 pips
+ * - has 'unreversed' trades, that turn and go with the strategy provider once it has gone very negative
  *
  * Created by Quasar on 3/12/2015.
  */
@@ -28,6 +26,9 @@ public class ReverseStrategyHandler extends StrategyHandler {
 
 	/** Custom pip diff for reverse strategy only */
 	private static final int REVERSE_MAX_PIP_DIFF = 10; // 10 pips
+
+	/** Maximum number of units for an unreverse trade */
+	private static final int MAX_UNREVERSE_TRADE_UNITS = 50000;
 
 	/** Initial stop-loss in pips */
 	private static final int STOP_LOSS = 25;
@@ -40,9 +41,13 @@ public class ReverseStrategyHandler extends StrategyHandler {
 
 	/** Property name for currently open on C2 */
 	private static final String OPEN_ON_C2 = "OPEN_ON_C2";
+	/** Property name for unreversed trades */
+	private static final String UNREVERSED = "UNREVERSED";
 
 	/** Set that contains all pairs that are currently open on C2 */
 	private Set<String> openOnC2;
+	/** Set that contains all pairs that are current un-reversed */
+	private Set<String> unreversed;
 
 	/**
 	 * Constructor for the reverse strategy.
@@ -53,6 +58,8 @@ public class ReverseStrategyHandler extends StrategyHandler {
 		super(accountId);
 
 		this.openOnC2 = new HashSet<String>();
+		this.unreversed = new HashSet<String>();
+
 		// load saved data from properties file
 		Properties saveData = new Properties();
 		try {
@@ -67,6 +74,17 @@ public class ReverseStrategyHandler extends StrategyHandler {
 				// add to openOnC2
 				openOnC2.add(s);
 			}
+
+			String[] unreversedUnvalidated = saveData.getProperty(UNREVERSED).split(",");
+			for (String s : unreversedUnvalidated) {
+				if (s.equals("")) continue;
+				s = s.trim().toUpperCase();
+				validateCurrencyPair(s);
+
+				// if already on op
+				// add to unreversed
+				unreversed.add(s);
+			}
 		} catch (IOException ioe) {
 			Logger.error("Error loading reverse.properties save data: " + ioe);
 			ioe.printStackTrace(Logger.err);
@@ -76,6 +94,59 @@ public class ReverseStrategyHandler extends StrategyHandler {
 			re.printStackTrace(Logger.err);
 			C2OBridge.crash();
 		}
+	}
+
+	/**
+	 * Checks whether or not the given pair can be unreversed.
+	 *
+	 * A pair can be unreversed if:
+	 * - it is currently open on C2
+	 * - we are not currently reverse-trading it
+	 * - it has not already been unreversed
+	 *
+	 * @param pair the pair to check for unreversing
+	 * @param units the amount of units in the unreverse trade
+	 * @return null if the pair can be unreversed. otherwise, returns a string detailing the reason why this pair cannot
+	 * 		   be unreversed.
+	 */
+	public String canUnreverse(String pair, int units) {
+		String reason = "";
+
+		ArrayList<JSONObject> list = getTrades(pair);
+		for (JSONObject trade : list) {
+			if (trade.getString(INSTRUMENT).equals(pair)) {
+				reason += "\n- pair is currently being reverse traded";
+				break;
+			}
+		}
+
+		if (!openOnC2.contains(pair)) {
+			reason += "\n- pair is NOT currently open on C2";
+		}
+		if (unreversed.contains(pair)) {
+			reason += "\n- pair has ALREADY been unreversed";
+		}
+		if  (units > MAX_UNREVERSE_TRADE_UNITS) {
+			reason += "\n- unreverse trade size cannot exceed the maximum of " + MAX_UNREVERSE_TRADE_UNITS + " units";
+		}
+		return reason;
+	}
+
+	/**
+	 * Opens an unreverse trade and puts the pair into the unreversed collection. Does not check all requirements, so
+	 * make sure canUnreverse() is called before calling this method.
+	 *
+	 * @param side buy or sell
+	 * @param units the position size
+	 * @param pair the currency pair to trade
+	 */
+	public void openUnreverseTrade(String side, int units, String pair) {
+		// add to unreversed
+		if (unreversed.contains(pair)) throw new RuntimeException("Unreversed already contains pair [" + pair + "]");
+		unreversed.add(pair);
+
+		// open trade
+		openTrade(side, units, pair);
 	}
 
 	/**
@@ -92,14 +163,15 @@ public class ReverseStrategyHandler extends StrategyHandler {
 		double curPrice = getOandaPrice(side, pair);
 		double diff = roundPips(pair, Math.abs(curPrice - oprice));
 
-		// check if any trades for this pair are already opened. if so, ignore
-		List<JSONObject> alreadyOpen = getTrades(pair);
-		if (alreadyOpen.size() > 0) {
-			// return early without doing anything
-			return;
-		}
-
 		if (action.equals(OPEN)) {
+
+			// check if any trades for this pair are already opened. if so, ignore
+			List<JSONObject> alreadyOpen = getTrades(pair);
+			if (alreadyOpen.size() > 0) {
+				// return early without doing anything
+				return;
+			}
+
 			// only process if this pair isn't already in openOnC2 (otherwise it means this is an additional trade)
 			if (!openOnC2.contains(pair)) {
 				// add to set
@@ -139,24 +211,6 @@ public class ReverseStrategyHandler extends StrategyHandler {
 					// give it initial stop loss and the trailing stop loss. no take profit
 					modifyTrade(id, stopLoss, TRAILING_STOP_LOSS);
 
-					// commented lines below are for splitting reverse strategy into take-profit and trailing-stop
-					/*
-					// work out the take profit
-					double takeProfit = curPrice;
-					netPips = pipsToPrice(pair, STOP_LOSS * 2);
-					if (side.equals(BUY)) takeProfit += netPips;
-					else takeProfit -= netPips;
-					if (isTrailingReverseStrategy()) {
-						// give it initial stop loss and the trailing stop loss. no take profit
-						modifyTrade(id, stopLoss, TRAILING_STOP_LOSS);
-					} else if (isTakeProfitReverseStrategy()) {
-						// give it initial stop loss but no trailing stop loss. give it take profit
-						modifyTrade(id, stopLoss, NO_TRAILING_STOP);
-						setTakeProfit(id, takeProfit);
-					} else {
-						throw new RuntimeException("Both isTrailingReverseStrategy() and isTakeProfitReverseStrategy() return false");
-					}
-					*/
 				} else {
 					// missed opportunity
 					Logger.error("[ReverseStrategy] missed opportunity to place order to " + side + " " + pair + " (pip diff = " + diff +
@@ -167,6 +221,20 @@ public class ReverseStrategyHandler extends StrategyHandler {
 		} else {
 			// mark as closed, remove from openOnC2
 			openOnC2.remove(pair);
+			// check if we had this pair on unreverse, if so, close that trade and remove from unreverse collection
+			if (unreversed.contains(pair)) {
+				unreversed.remove(pair);
+				// fetch all of the open trades and close them
+				ArrayList<JSONObject> list = getTrades(pair);
+				if (list.size() == 0) {
+					Logger.error("[ReverseStrategy] C2 closed pair " + pair + " which was on the unreverse list, but didn't find any on Oanda.");
+				}
+				for (JSONObject trade : list) {
+					// close every trade returned for this pair
+					long tradeId = trade.getLong(ID);
+					closeTrade(tradeId);
+				}
+			}
 		}
 	}
 
@@ -178,12 +246,16 @@ public class ReverseStrategyHandler extends StrategyHandler {
 		Properties props = new Properties();
 		String c = "";
 		for (String s : openOnC2) {
-			if (c.length() > 0) {
-				c += ",";
-			}
+			if (c.length() > 0) c += ",";
 			c += s;
 		}
 		props.put(OPEN_ON_C2, c);
+		String u = "";
+		for (String s : unreversed) {
+			if (u.length() > 0) u += ",";
+			u += s;
+		}
+		props.put(UNREVERSED, u);
 
 		// save to file
 		try {

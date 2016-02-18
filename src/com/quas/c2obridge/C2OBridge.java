@@ -9,10 +9,7 @@ import javax.mail.event.MessageCountAdapter;
 import javax.mail.event.MessageCountEvent;
 import java.io.*;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -28,6 +25,11 @@ public class C2OBridge {
 	 * Non-debug mode = if there are any emails in inbox upon program start, terminate with warning message
 	 */
 	private static final boolean DEBUG_MODE;
+
+	/** Strategy ids, to serve as keys for the collection (map) of strategies */
+	public static final int REVERSE = 1;
+	public static final int SMART_COPY = 2;
+	public static final int EXACT_COPY = 3;
 
 	/** Oanda API details */
 	public static final String OANDA_API_KEY;
@@ -87,20 +89,20 @@ public class C2OBridge {
 	}
 
 	/** MessageHandler implementation */
-	private List<StrategyHandler> strategyHandlers;
+	private HashMap<Integer, StrategyHandler> strategyHandlers;
 
 	/**
 	 * Constructs a new C2OBridge main application instance and initialises all the strategy handlers.
 	 */
 	public C2OBridge() {
 		// initialise the applicable strategies and their account ids
-		this.strategyHandlers = new ArrayList<StrategyHandler>();
+		this.strategyHandlers = new HashMap<Integer, StrategyHandler>();
 		// reverse strategy
-		strategyHandlers.add(new ReverseStrategyHandler(REVERSE_ACC_ID));
+		strategyHandlers.put(REVERSE, new ReverseStrategyHandler(REVERSE_ACC_ID));
 		// smart copy strategy
-		strategyHandlers.add(new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
+		strategyHandlers.put(SMART_COPY, new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
 		// exact copy strategy
-		strategyHandlers.add(new CopyStrategyHandler(COPY_ACC_ID));
+		strategyHandlers.put(EXACT_COPY, new CopyStrategyHandler(COPY_ACC_ID));
 		Logger.info("Number of strategies running: " + strategyHandlers.size());
 	}
 
@@ -108,7 +110,7 @@ public class C2OBridge {
 	 * Alerts all strategies of shutdown.
 	 */
 	public void shutdown() {
-		for (StrategyHandler strategy : strategyHandlers) {
+		for (StrategyHandler strategy : strategyHandlers.values()) {
 			strategy.shutdown();
 		}
 	}
@@ -117,7 +119,7 @@ public class C2OBridge {
 		// create instance of app
 		app = new C2OBridge();
 		// initialise command line handler thread
-		new Thread(new CommandLineHandler(app)).start();
+		new Thread(new CommandLineHandler(app, app.strategyHandlers)).start();
 
 		try {
 			for (int i = 1; i <= 100; i++) {
@@ -157,7 +159,7 @@ public class C2OBridge {
 						// go through all the messages and try to process them
 						for (Message m : messages) {
 							Logger.info("Title: " + m.getSubject());
-							for (StrategyHandler strategy : app.strategyHandlers) {
+							for (StrategyHandler strategy : app.strategyHandlers.values()) {
 								strategy.handleMessage(m);
 								sleep(1000);
 							}
@@ -193,7 +195,7 @@ public class C2OBridge {
 								for (Message message : messages) {
 									Logger.out.println();
 									Logger.info("Received a message with title = " + message.getSubject());
-									for (StrategyHandler strategy : app.strategyHandlers) {
+									for (StrategyHandler strategy : app.strategyHandlers.values()) {
 										strategy.handleMessage(message);
 										sleep(1000); // sleep 1 sec between strategies to not exceed limit for Oanda API calls
 									}
@@ -206,8 +208,8 @@ public class C2OBridge {
 								Logger.error("There was an issue in I/O when trying to do transaction: " + ioe);
 								ioe.printStackTrace(Logger.err);
 							}
-
 							try {
+
 								idleManager.watch(folder); // keep watching for new messages
 							} catch (MessagingException mex) {
 								Logger.error("MessagingException caught when watching for new messages:");
@@ -283,7 +285,7 @@ public class C2OBridge {
 		try {
 			Thread.sleep(millis);
 		} catch (InterruptedException ie) {
-			// ignore
+			Logger.error("Interrupted when trying to sleep for " + millis + " ms: " + ie);
 		}
 	}
 }

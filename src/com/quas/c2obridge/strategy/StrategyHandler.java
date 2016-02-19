@@ -502,11 +502,21 @@ public abstract class StrategyHandler implements IStrategyHandler {
 		double pipValueBase = pip / pairRate; // value per pip in terms of the base currency
 
 		// find value of currency pair accountCurrency/baseCurrency
-		String accBase = CurrencyPairs.getPair(ACC_CURRENCY, base);
-		String[] accBaseSplit = accBase.split("_");
-		double accBasePrice = getMedianOandaPrice(accBase);
+		String accBase;
+		String[] accBaseSplit;
+		double accBasePrice;
+		boolean accCurIsBase;
+		if (!ACC_CURRENCY.equals(base)) {
+			accBase = CurrencyPairs.getPair(ACC_CURRENCY, base);
+			accBaseSplit = accBase.split("_");
+			accBasePrice = getMedianOandaPrice(accBase);
+			accCurIsBase = ACC_CURRENCY.equals(accBaseSplit[0]);
+		} else {
+			accBasePrice = 1; // base is equal to acc currency
+			accCurIsBase = true;
+		}
 		double ret;
-		if (ACC_CURRENCY.equals(accBaseSplit[0])) { // acc currency is base of accBase pair
+		if (accCurIsBase) { // acc currency is base of accBase pair
 			ret = pipValueBase / accBasePrice;
 		} else { // acc currency is quote of accBase pair
 			ret = pipValueBase * accBasePrice;

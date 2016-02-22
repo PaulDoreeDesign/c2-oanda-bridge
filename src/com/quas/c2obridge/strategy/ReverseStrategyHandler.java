@@ -142,23 +142,33 @@ public class ReverseStrategyHandler extends StrategyHandler {
 				double stopLoss = trade.getDouble(TRAILING_STOP);
 				String pair = trade.getString(INSTRUMENT);
 				stillOpen.add(pair);
-				if (stopLoss == 0) { // only bother with trades where we haven't set the trailing stop yet
-					// check if the trade has gone in our favour by INITIAL_STOP_LOSS pips
-					long tradeId = trade.getLong(ID);
-					double openPrice = trade.getDouble(PRICE);
-					String openSide = trade.getString(SIDE);
-					String closeAction = openSide.equals(BUY) ? SELL : BUY; // action to take if we want to close the trade
-					double currentPrice = getOandaPrice(closeAction, pair);
-					double profit = (openSide.equals(BUY) ? 1 : -1) * (currentPrice - openPrice); // profit in pair price
-					profit = priceToPips(pair, profit); // calculate profit in pips
+				// check if the trade has gone in our favour by INITIAL_STOP_LOSS pips
+				long tradeId = trade.getLong(ID);
+				double openPrice = trade.getDouble(PRICE);
+				String openSide = trade.getString(SIDE);
+				String closeAction = openSide.equals(BUY) ? SELL : BUY; // action to take if we want to close the trade
+				double currentPrice = getOandaPrice(closeAction, pair);
+				double profit = (openSide.equals(BUY) ? 1 : -1) * (currentPrice - openPrice); // profit in pair price
+				profit = priceToPips(pair, profit); // calculate profit in pips
+				if (stopLoss == 0) { // trades that we haven't set the trailing stop for yet
 					if (profit >= INITIAL_STOP_LOSS) {
 						// when we reach INITIAL_STOP_LOSS pips in profit, we move stop-loss to break even
 						// and also set the trailing stop loss
 						modifyTrade(tradeId, openPrice, TRAILING_STOP_LOSS);
 						Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Set trade for [" + pair + "] to break-even (stop-loss = " + openPrice + ")");
 					}
+				} else {
+					if (profit >= (INITIAL_STOP_LOSS * 8)) { // 200 pips profit -> 100 pips stop-loss
+						// double the trailing stop loss
+						modifyTrade(tradeId, openPrice, TRAILING_STOP_LOSS * 2);
+						Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Trade for [" + pair + "] reached " + profit + " pips profit, so moved trailing stop to " +
+								(TRAILING_STOP_LOSS * 2) + " pips.");
+					}
+					// maybe additional settings here in the future...
 				}
 			}
+
+			// check for trades that have been stopped out
 			synchronized (reversed) {
 				Set<String> reversedCopy = new HashSet<String>(reversed);
 				reversedCopy.removeAll(stillOpen); // subtract stillOpen from reversedCopy

@@ -9,6 +9,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Strategy #3:
@@ -44,10 +47,20 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	/** Property name for unreversed trades */
 	private static final String UNREVERSED = "UNREVERSED";
 
+	/** How often to run the scheduled reverse check */
+	private static final int SCHEDULED_CHECK_MINUTES = 5; // every 5 min
+
+	/** Scheduled checker for reversed pairs */
+	private final ScheduledExecutorService scheduler;
+	private final ReverseScheduledCheck checker;
+
 	/** Set that contains all pairs that are currently open on C2 */
 	private Set<String> openOnC2;
-	/** Set that contains all pairs that are current un-reversed */
+	/** Set that contains all pairs that are currently un-reversed */
 	private Set<String> unreversed;
+
+	/** Set that contains all pairs that we currently have reversed */
+	private Set<String> reversed;
 
 	/**
 	 * Constructor for the reverse strategy.
@@ -59,6 +72,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 
 		this.openOnC2 = new HashSet<>();
 		this.unreversed = new HashSet<>();
+		this.reversed = new HashSet<>();
 
 		// load saved data from properties file
 		Properties saveData = new Properties();
@@ -93,6 +107,24 @@ public class ReverseStrategyHandler extends StrategyHandler {
 			Logger.error("Error loading reverse.properties save data, corruption: " + re);
 			re.printStackTrace(Logger.err);
 			C2OBridge.crash();
+		}
+
+		// setup scheduled checks
+		this.scheduler = Executors.newScheduledThreadPool(1);
+		this.checker = new ReverseScheduledCheck();
+		scheduler.scheduleAtFixedRate(checker, SCHEDULED_CHECK_MINUTES, SCHEDULED_CHECK_MINUTES, TimeUnit.MINUTES);
+	}
+
+	/**
+	 * Scheduled task that runs every SCHEDULED_CHECK_MINUTES minutes. Acts like a more blocky trailing stop loss, with
+	 * fixed intervals to shift stop-losses. Possibly the most important shift is from the initial stop-loss to
+	 * break-even.
+	 */
+	private class ReverseScheduledCheck implements Runnable {
+
+		@Override
+		public void run() {
+			Logger.info("Scheduled task placeholder");
 		}
 	}
 

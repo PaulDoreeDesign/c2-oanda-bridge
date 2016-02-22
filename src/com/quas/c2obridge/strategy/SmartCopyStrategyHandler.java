@@ -296,7 +296,7 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 			// no checks required - even manually re-entered trades should be closed according to C2 strategy
 
 			// get all trades for this pair
-			ArrayList<JSONObject> list = getTrades(pair); // json of all currently open trades for this pair
+			List<JSONObject> list = getTrades(pair); // json of all currently open trades for this pair
 			// get all orders for this pair
 			ArrayList<JSONObject> olist = getOrders(pair);
 

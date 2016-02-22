@@ -56,8 +56,8 @@ public class CommandLineHandler implements Runnable {
 							reverseStrat.closeTrade(tradeId);
 							Logger.console("Closed trade. Test complete.");
 						} else if (args[1].equalsIgnoreCase(StrategyHandler.BUY) || args[1].equalsIgnoreCase(StrategyHandler.SELL)) {
-							if (args.length < 5) {
-								Logger.console("Invalid syntax: use 'reverse [buy/sell] [first currency] [second currency] [numUnits]'");
+							if (args.length < 5 || args.length > 6) {
+								Logger.console("Invalid syntax: use 'reverse buy/sell currency_A currency_B numUnits [additional]'");
 								continue;
 							}
 							// actually try and make the trade
@@ -76,10 +76,19 @@ public class CommandLineHandler implements Runnable {
 								Logger.console("Error parsing units: " + re + ", " + re.getMessage());
 								continue;
 							}
+							boolean additional = false;
+							if (args.length == 6) {
+								if (args[5].equals("additional")) {
+									additional = true;
+								} else {
+									Logger.console("Invalid syntax: use 'reverse buy/sell currency_A currency_B numUnits [additional]'");
+									continue;
+								}
+							}
 							// open the unreverse trade if possible
-							String error = reverseStrat.canUnreverse(pair, units);
+							String error = reverseStrat.canUnreverse(pair, units, additional);
 							if (error.equals("")) { // no error, can unreverse
-								reverseStrat.openUnreverseTrade(side, units, pair);
+								reverseStrat.openUnreverseTrade(side, units, pair, additional);
 								Logger.console("Successfully opened an unreverse trade. Side: " + side + ", units: " + units + ", pair: " + pair);
 							} else {
 								Logger.console("Can't open unreverse trade for the following reasons:" + error); // print the error to console

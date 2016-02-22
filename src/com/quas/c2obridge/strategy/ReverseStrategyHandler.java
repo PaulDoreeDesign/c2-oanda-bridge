@@ -138,10 +138,11 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	 *
 	 * @param pair the pair to check for unreversing
 	 * @param units the amount of units in the unreverse trade
+	 * @param additional whether or not this is an additional unreversal
 	 * @return null if the pair can be unreversed. otherwise, returns a string detailing the reason why this pair cannot
 	 * 		   be unreversed.
 	 */
-	public String canUnreverse(String pair, int units) {
+	public String canUnreverse(String pair, int units, boolean additional) {
 		String reason = "";
 
 		ArrayList<JSONObject> list = getTrades(pair);
@@ -156,9 +157,9 @@ public class ReverseStrategyHandler extends StrategyHandler {
 			if (!reason.equals("")) reason += "\n";
 			reason += "- pair is NOT currently open on C2, ";
 		}
-		if (unreversed.contains(pair)) {
+		if (unreversed.contains(pair) && !additional) {
 			if (!reason.equals("")) reason += "\n";
-			reason += "- pair has ALREADY been unreversed, ";
+			reason += "- pair has ALREADY been unreversed. To force an additional trade on top, use 'reverse buy/sell currency_A currency_B numUnits additional";
 		}
 		if  (units > MAX_UNREVERSE_TRADE_UNITS) {
 			if (!reason.equals("")) reason += "\n";
@@ -174,11 +175,14 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	 * @param side buy or sell
 	 * @param units the position size
 	 * @param pair the currency pair to trade
+	 * @param additional whether or not this trade is a forced additional on top of an already reversed trade
 	 */
-	public void openUnreverseTrade(String side, int units, String pair) {
-		// add to unreversed
-		if (unreversed.contains(pair)) throw new RuntimeException("Unreversed already contains pair [" + pair + "]");
-		unreversed.add(pair);
+	public void openUnreverseTrade(String side, int units, String pair, boolean additional) {
+		if (!additional && unreversed.contains(pair)) { // not additional, but already in unreversed collection
+			throw new RuntimeException("Unreversed already contains pair [" + pair + "]");
+		} else if (!additional) { // first trade, add to collection
+			unreversed.add(pair);
+		}
 
 		// open trade
 		openTrade(side, units, pair);

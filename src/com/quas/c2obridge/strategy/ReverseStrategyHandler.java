@@ -57,8 +57,8 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	public ReverseStrategyHandler(int accountId) {
 		super(accountId);
 
-		this.openOnC2 = new HashSet<String>();
-		this.unreversed = new HashSet<String>();
+		this.openOnC2 = new HashSet<>();
+		this.unreversed = new HashSet<>();
 
 		// load saved data from properties file
 		Properties saveData = new Properties();
@@ -115,19 +115,22 @@ public class ReverseStrategyHandler extends StrategyHandler {
 		ArrayList<JSONObject> list = getTrades(pair);
 		for (JSONObject trade : list) {
 			if (trade.getString(INSTRUMENT).equals(pair)) {
-				reason += "pair is currently being reverse traded, ";
+				reason += "\n- pair is currently being reverse traded, ";
 				break;
 			}
 		}
 
 		if (!openOnC2.contains(pair)) {
-			reason += "pair is NOT currently open on C2, ";
+			if (!reason.equals("")) reason += "\n";
+			reason += "- pair is NOT currently open on C2, ";
 		}
 		if (unreversed.contains(pair)) {
-			reason += "pair has ALREADY been unreversed, ";
+			if (!reason.equals("")) reason += "\n";
+			reason += "- pair has ALREADY been unreversed, ";
 		}
 		if  (units > MAX_UNREVERSE_TRADE_UNITS) {
-			reason += "unreverse trade size cannot exceed the maximum of " + MAX_UNREVERSE_TRADE_UNITS + " units, ";
+			if (!reason.equals("")) reason += "\n";
+			reason += "- unreverse trade size cannot exceed the maximum of " + MAX_UNREVERSE_TRADE_UNITS + " units";
 		}
 		return reason;
 	}

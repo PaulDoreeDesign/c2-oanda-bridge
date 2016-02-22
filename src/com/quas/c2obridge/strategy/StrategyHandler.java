@@ -13,10 +13,7 @@ import javax.mail.MessagingException;
 import java.io.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.*;
 
 import static com.quas.c2obridge.C2OBridge.*;
 
@@ -373,14 +370,15 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	}
 
 	/**
-	 * Gets all open trades for the given currency pair. (Max is 500 but this should never be reached unless some
-	 * crazy stupid shit is being done...)
+	 * Gets all open trades for the given currency pair. (Max is 50 but this should never be reached unless something
+	 * has gone SERIOUSLY out of whack...
 	 *
-	 * @param pair the currency pair to search for
+	 * @param pair the currency pair to search for, or null to search every trade, regardless of currency pair
 	 * @return arraylist of JSONObjects that were in the response
 	 */
-	public ArrayList<JSONObject> getTrades(String pair) {
-		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/trades?instrument=" + pair + "&count=500", Connector.GET, OANDA_API_KEY);
+	public List<JSONObject> getTrades(String pair) {
+		String pairParam = (pair == null) ? "" : "instrument=" + pair + "&";
+		Connector con = new Connector(OANDA_API_URL + "/v1/accounts/" + accountId + "/trades?" + pairParam + "count=50", Connector.GET, OANDA_API_KEY);
 		JSONArray arr = new JSONObject(con.getResponse()).getJSONArray("trades");
 		ArrayList<JSONObject> list = new ArrayList<JSONObject>();
 		for (int i = 0; i < arr.length(); i++) {

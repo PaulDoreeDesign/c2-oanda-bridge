@@ -34,7 +34,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	private static final int MAX_UNREVERSE_TRADE_UNITS = 50000;
 
 	/** Initial stop-loss in pips */
-	private static final int STOP_LOSS = 25;
+	private static final int INITIAL_STOP_LOSS = 25;
 
 	/** Trailing stop-loss in pips */
 	private static final int TRAILING_STOP_LOSS = 50;
@@ -46,6 +46,8 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	private static final String OPEN_ON_C2 = "OPEN_ON_C2";
 	/** Property name for unreversed trades */
 	private static final String UNREVERSED = "UNREVERSED";
+	/** Property name for reversed trades */
+	private static final String REVERSED = "REVERSED";
 
 	/** How often to run the scheduled reverse check */
 	private static final int SCHEDULED_CHECK_MINUTES = 5; // every 5 min
@@ -60,7 +62,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	private Set<String> unreversed;
 
 	/** Set that contains all pairs that we currently have reversed */
-	private Set<String> reversed;
+	private final Set<String> reversed;
 
 	/**
 	 * Constructor for the reverse strategy.
@@ -70,9 +72,9 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	public ReverseStrategyHandler(int accountId) {
 		super(accountId);
 
-		this.openOnC2 = new HashSet<>();
-		this.unreversed = new HashSet<>();
-		this.reversed = new HashSet<>();
+		this.openOnC2 = new HashSet<String>();
+		this.unreversed = new HashSet<String>();
+		this.reversed = new HashSet<String>();
 
 		// load saved data from properties file
 		Properties saveData = new Properties();
@@ -81,7 +83,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 
 			String[] openOnC2Unvalidated = saveData.getProperty(OPEN_ON_C2).split(",");
 			for (String s : openOnC2Unvalidated) {
-				if (s.equals("")) continue;
+				if (s.trim().equals("")) continue;
 				s = s.trim().toUpperCase(); // trim whitespace and uppercase
 				validateCurrencyPair(s); // throws RuntimeException if invalid
 
@@ -91,13 +93,22 @@ public class ReverseStrategyHandler extends StrategyHandler {
 
 			String[] unreversedUnvalidated = saveData.getProperty(UNREVERSED).split(",");
 			for (String s : unreversedUnvalidated) {
-				if (s.equals("")) continue;
+				if (s.trim().equals("")) continue;
 				s = s.trim().toUpperCase();
 				validateCurrencyPair(s);
 
 				// if already on op
 				// add to unreversed
 				unreversed.add(s);
+			}
+
+			String[] reversedUnvalidated = saveData.getProperty(REVERSED).split(",");
+			for (String s : reversedUnvalidated) {
+				if (s.trim().equals("")) continue;
+				s = s.trim().toUpperCase();
+				validateCurrencyPair(s);
+				// add to reversed collection
+				reversed.add(s); // no synchronization block needed here because this will be executed completely before emails start being read
 			}
 		} catch (IOException ioe) {
 			Logger.error("Error loading reverse.properties save data: " + ioe);
@@ -124,7 +135,51 @@ public class ReverseStrategyHandler extends StrategyHandler {
 
 		@Override
 		public void run() {
-			Logger.info("Scheduled task placeholder");
+			// fetch all the currently open trades on oanda
+			List<JSONObject> allTrades = getTrades(null);
+			Set<String> stillOpen = new HashSet<String>();
+			for (JSONObject trade : allTrades) {
+				double stopLoss = trade.getDouble(TRAILING_STOP);
+				String pair = trade.getString(INSTRUMENT);
+				stillOpen.add(pair);
+				// check if the trade has gone in our favour by INITIAL_STOP_LOSS pips
+				long tradeId = trade.getLong(ID);
+				double openPrice = trade.getDouble(PRICE);
+				String openSide = trade.getString(SIDE);
+				String closeAction = openSide.equals(BUY) ? SELL : BUY; // action to take if we want to close the trade
+				double currentPrice = getOandaPrice(closeAction, pair);
+				double profit = (openSide.equals(BUY) ? 1 : -1) * (currentPrice - openPrice); // profit in pair price
+				profit = priceToPips(pair, profit); // calculate profit in pips
+				if (stopLoss == 0) { // trades that we haven't set the trailing stop for yet
+					if (profit >= INITIAL_STOP_LOSS) {
+						// when we reach INITIAL_STOP_LOSS pips in profit, we move stop-loss to break even
+						// and also set the trailing stop loss
+						modifyTrade(tradeId, openPrice, TRAILING_STOP_LOSS);
+						Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Set trade for [" + pair + "] to break-even (stop-loss = " + openPrice + ")");
+					}
+				} else {
+					if (profit >= (INITIAL_STOP_LOSS * 8)) { // 200 pips profit -> 100 pips stop-loss
+						// double the trailing stop loss
+						modifyTrade(tradeId, openPrice, TRAILING_STOP_LOSS * 2);
+						Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Trade for [" + pair + "] reached " + profit + " pips profit, so moved trailing stop to " +
+								(TRAILING_STOP_LOSS * 2) + " pips.");
+					}
+					// maybe additional settings here in the future...
+				}
+			}
+
+			// check for trades that have been stopped out
+			synchronized (reversed) {
+				Set<String> reversedCopy = new HashSet<String>(reversed);
+				reversedCopy.removeAll(stillOpen); // subtract stillOpen from reversedCopy
+				// pairs still remaining in reversedCopy have been stopped out
+				for (String pair : reversedCopy) {
+					// remove from reversed
+					reversed.remove(pair);
+					// print message informing of stop-out
+					Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Trade for [" + pair + "] appears to have been stopped out.");
+				}
+			}
 		}
 	}
 
@@ -145,7 +200,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	public String canUnreverse(String pair, int units, boolean additional) {
 		String reason = "";
 
-		ArrayList<JSONObject> list = getTrades(pair);
+		List<JSONObject> list = getTrades(pair);
 		for (JSONObject trade : list) {
 			if (trade.getString(INSTRUMENT).equals(pair)) {
 				reason += "\n- pair is currently being reverse traded, ";
@@ -226,17 +281,17 @@ public class ReverseStrategyHandler extends StrategyHandler {
 					// fetch balance
 					double balance = getAccountBalance();
 
-					// figure out position sizing, with relation to RISK_PERCENTAGE_PER_TRADE and STOP_LOSS
+					// figure out position sizing, with relation to RISK_PERCENTAGE_PER_TRADE and INITIAL_STOP_LOSS
 					double accCurrencyPerPip = getAccCurrencyPerPip(pair); // each pip of this pair is worth how much $AUD assuming position size 1
 					double accCurrencyRisk = balance * (RISK_PERCENTAGE_PER_TRADE / 100D); // how many $AUD for RISK_PERCENTAGE_PER_TRADE % risk
-					int oandaPsize = (int) (accCurrencyRisk / (accCurrencyPerPip * STOP_LOSS));
+					int oandaPsize = (int) (accCurrencyRisk / (accCurrencyPerPip * INITIAL_STOP_LOSS));
 
 					// actually place the trade
 					long id = openTrade(side, oandaPsize, pair); // id = id of the trade that is returned once it is placed
 
-					// modify the trade to give it a stop-loss
+					// modify the trade to give it an initial stop-loss
 					double stopLoss = curPrice;
-					double netPips = pipsToPrice(pair, STOP_LOSS);
+					double netPips = pipsToPrice(pair, INITIAL_STOP_LOSS);
 					if (side.equals(BUY)) stopLoss -= netPips;
 					else stopLoss += netPips;
 
@@ -247,8 +302,13 @@ public class ReverseStrategyHandler extends StrategyHandler {
 						stopLoss = round4(stopLoss);
 					}
 
-					// give it initial stop loss and the trailing stop loss. no take profit
-					modifyTrade(id, stopLoss, TRAILING_STOP_LOSS);
+					// give it initial stop loss, but not trailing stop loss.
+					modifyTrade(id, stopLoss, NO_TRAILING_STOP);
+
+					// add pair to the 'reversed' collection
+					synchronized (reversed) {
+						reversed.add(pair);
+					}
 
 				} else {
 					// missed opportunity
@@ -264,7 +324,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 			if (unreversed.contains(pair)) {
 				unreversed.remove(pair);
 				// fetch all of the open trades and close them
-				ArrayList<JSONObject> list = getTrades(pair);
+				List<JSONObject> list = getTrades(pair);
 				if (list.size() == 0) {
 					Logger.error("[ReverseStrategy] C2 closed pair " + pair + " which was on the unreverse list, but didn't find any on Oanda.");
 				}
@@ -295,6 +355,12 @@ public class ReverseStrategyHandler extends StrategyHandler {
 			u += s;
 		}
 		props.put(UNREVERSED, u);
+		String r = "";
+		for (String s : reversed) {
+			if (r.length() > 0) r += ",";
+			r += s;
+		}
+		props.put(REVERSED, r);
 
 		// save to file
 		try {

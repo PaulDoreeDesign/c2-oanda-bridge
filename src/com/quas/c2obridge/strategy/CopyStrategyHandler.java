@@ -5,6 +5,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Strategy #1:
@@ -60,7 +61,7 @@ public class CopyStrategyHandler extends StrategyHandler {
 			// try to close position instantly
 			// @TODO confirm position sizing is equivalent to entire position
 			// get all trades for this pair
-			ArrayList<JSONObject> list = getTrades(pair); // json of all currently open trades for this pair
+			List<JSONObject> list = getTrades(pair); // json of all currently open trades for this pair
 			for (JSONObject trade : list) {
 				// close every trade returned for this pair
 				long tradeId = trade.getLong(ID);

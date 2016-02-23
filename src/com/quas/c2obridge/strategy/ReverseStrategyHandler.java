@@ -137,7 +137,8 @@ public class ReverseStrategyHandler extends StrategyHandler {
 		public void run() {
 			// fetch all the currently open trades on oanda
 			List<JSONObject> allTrades = getTrades(null);
-			Set<String> stillOpen = new HashSet<String>(); // this set will only have reversed (ie. initial) trades added to it
+			Set<String> stillOpenReverse = new HashSet<String>();
+			Set<String> stillOpenUnreverse = new HashSet<String>();
 			for (JSONObject trade : allTrades) {
 				double stopLoss = trade.getDouble(TRAILING_STOP);
 				String pair = trade.getString(INSTRUMENT);
@@ -148,7 +149,9 @@ public class ReverseStrategyHandler extends StrategyHandler {
 					isReversedTrade = reversed.contains(pair);
 				}
 				if (isReversedTrade) {
-					stillOpen.add(pair);
+					stillOpenReverse.add(pair);
+				} else {
+					stillOpenUnreverse.add(pair);
 				}
 
 				// check if the trade has gone in our favour by INITIAL_STOP_LOSS pips
@@ -160,10 +163,10 @@ public class ReverseStrategyHandler extends StrategyHandler {
 				double profit = (openSide.equals(BUY) ? 1 : -1) * (currentPrice - openPrice); // profit in pair price
 				profit = priceToPips(pair, profit); // calculate profit in pips
 
-				// reversed trades: consider moving their stop-loss to break even, and also possibly set trailing stop
+				// reversed trades: consider moving their stop-loss to break even, and setting set trailing stop
 				if (isReversedTrade) {
 					if (stopLoss == 0) { // trades that we haven't set the trailing stop for yet
-						if (profit >= INITIAL_STOP_LOSS) {
+						if (profit >= TRAILING_STOP_LOSS) {
 							// when we reach INITIAL_STOP_LOSS pips in profit, we move stop-loss to break even
 							// and also set the trailing stop loss
 							modifyTrade(tradeId, openPrice, TRAILING_STOP_LOSS);
@@ -186,17 +189,25 @@ public class ReverseStrategyHandler extends StrategyHandler {
 				}
 			}
 
-			// check for trades that have been stopped out
+			// check for reversed trades that have been stopped out
 			synchronized (reversed) {
 				Set<String> reversedCopy = new HashSet<String>(reversed);
-				reversedCopy.removeAll(stillOpen); // subtract stillOpen from reversedCopy
+				reversedCopy.removeAll(stillOpenReverse); // subtract stillOpen from reversedCopy
 				// pairs still remaining in reversedCopy have been stopped out
 				for (String pair : reversedCopy) {
 					// remove from reversed
 					reversed.remove(pair);
 					// print message informing of stop-out
-					Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Trade for [" + pair + "] appears to have been stopped out.");
+					Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Trade for reverse [" + pair + "] appears to have been stopped out.");
 				}
+			}
+
+			// check for unreversed trades that have been stopped out
+			Set<String> unreversedCopy = new HashSet<String>(unreversed);
+			unreversedCopy.removeAll(stillOpenUnreverse);
+			for (String pair : unreversedCopy) {
+				unreversed.remove(pair);
+				Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Trade for un-reverse [" + pair + "] appears to have been stopped out.");
 			}
 		}
 	}
@@ -235,7 +246,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 		}
 		if (unreversed.contains(pair) && !additional) {
 			if (!reason.equals("")) reason += "\n";
-			reason += "- pair has ALREADY been unreversed. To force an additional trade on top, use 'reverse buy/sell currency_A currency_B numUnits additional";
+			reason += "- pair has ALREADY been unreversed. To force an additional trade on top, use 'reverse buy/sell currency_A currency_B numUnits [additional]'";
 		}
 		if  (units > MAX_UNREVERSE_TRADE_UNITS) {
 			if (!reason.equals("")) reason += "\n";

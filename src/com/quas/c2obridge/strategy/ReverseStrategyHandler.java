@@ -137,11 +137,20 @@ public class ReverseStrategyHandler extends StrategyHandler {
 		public void run() {
 			// fetch all the currently open trades on oanda
 			List<JSONObject> allTrades = getTrades(null);
-			Set<String> stillOpen = new HashSet<String>();
+			Set<String> stillOpen = new HashSet<String>(); // this set will only have reversed (ie. initial) trades added to it
 			for (JSONObject trade : allTrades) {
 				double stopLoss = trade.getDouble(TRAILING_STOP);
 				String pair = trade.getString(INSTRUMENT);
-				stillOpen.add(pair);
+
+				boolean isReversedTrade;
+				synchronized (reversed) {
+					// whether or not this trade is a reverse trade (the other possibility is unreversed)
+					isReversedTrade = reversed.contains(pair);
+				}
+				if (isReversedTrade) {
+					stillOpen.add(pair);
+				}
+
 				// check if the trade has gone in our favour by INITIAL_STOP_LOSS pips
 				long tradeId = trade.getLong(ID);
 				double openPrice = trade.getDouble(PRICE);
@@ -150,21 +159,30 @@ public class ReverseStrategyHandler extends StrategyHandler {
 				double currentPrice = getOandaPrice(closeAction, pair);
 				double profit = (openSide.equals(BUY) ? 1 : -1) * (currentPrice - openPrice); // profit in pair price
 				profit = priceToPips(pair, profit); // calculate profit in pips
-				if (stopLoss == 0) { // trades that we haven't set the trailing stop for yet
-					if (profit >= INITIAL_STOP_LOSS) {
-						// when we reach INITIAL_STOP_LOSS pips in profit, we move stop-loss to break even
-						// and also set the trailing stop loss
-						modifyTrade(tradeId, openPrice, TRAILING_STOP_LOSS);
-						Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Set trade for [" + pair + "] to break-even (stop-loss = " + openPrice + ")");
+
+				// reversed trades: consider moving their stop-loss to break even, and also possibly set trailing stop
+				if (isReversedTrade) {
+					if (stopLoss == 0) { // trades that we haven't set the trailing stop for yet
+						if (profit >= INITIAL_STOP_LOSS) {
+							// when we reach INITIAL_STOP_LOSS pips in profit, we move stop-loss to break even
+							// and also set the trailing stop loss
+							modifyTrade(tradeId, openPrice, TRAILING_STOP_LOSS);
+							Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Set trade for reversed [" + pair + "] to break-even (stop-loss = " + openPrice +
+								"). Also set trailing stop to " + TRAILING_STOP_LOSS + " pips.");
+						}
+					} else {
+						if (profit >= (INITIAL_STOP_LOSS * 8)) { // 200 pips profit -> 100 pips stop-loss
+							// double the trailing stop loss
+							modifyTrade(tradeId, openPrice, TRAILING_STOP_LOSS * 2);
+							Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Trade for reversed [" + pair + "] reached " + profit + " pips profit, so moved trailing stop to " +
+									(TRAILING_STOP_LOSS * 2) + " pips.");
+						}
+						// maybe additional settings here in the future...
 					}
-				} else {
-					if (profit >= (INITIAL_STOP_LOSS * 8)) { // 200 pips profit -> 100 pips stop-loss
-						// double the trailing stop loss
-						modifyTrade(tradeId, openPrice, TRAILING_STOP_LOSS * 2);
-						Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Trade for [" + pair + "] reached " + profit + " pips profit, so moved trailing stop to " +
-								(TRAILING_STOP_LOSS * 2) + " pips.");
-					}
-					// maybe additional settings here in the future...
+				// unreversed trades: consider moving their stop-loss to break even, but that's it.
+				} else if (stopLoss == 0 && profit >= INITIAL_STOP_LOSS) {
+					modifyTrade(tradeId, openPrice, NO_TRAILING_STOP);
+					Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Set trade for un-reversed [" + pair + "] to break-even (stop-loss = " + openPrice + "). No trailing stop.");
 				}
 			}
 
@@ -192,18 +210,21 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	 * - it has not already been unreversed
 	 *
 	 * @param pair the pair to check for unreversing
+	 * @param side the side that we are trying to unreverse with
 	 * @param units the amount of units in the unreverse trade
 	 * @param additional whether or not this is an additional unreversal
 	 * @return null if the pair can be unreversed. otherwise, returns a string detailing the reason why this pair cannot
 	 * 		   be unreversed.
 	 */
-	public String canUnreverse(String pair, int units, boolean additional) {
+	public String canUnreverse(String pair, String side, int units, boolean additional) {
 		String reason = "";
 
 		List<JSONObject> list = getTrades(pair);
 		for (JSONObject trade : list) {
 			if (trade.getString(INSTRUMENT).equals(pair)) {
-				reason += "\n- pair is currently being reverse traded, ";
+				if (!trade.getString(SIDE).equals(side)) {
+					reason += "\n- pair is currently being traded in the OPPOSITE direction, ";
+				}
 				break;
 			}
 		}

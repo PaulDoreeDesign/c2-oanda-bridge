@@ -86,7 +86,7 @@ public class CommandLineHandler implements Runnable {
 								}
 							}
 							// open the unreverse trade if possible
-							String error = reverseStrat.canUnreverse(pair, units, additional);
+							String error = reverseStrat.canUnreverse(pair, side, units, additional);
 							if (error.equals("")) { // no error, can unreverse
 								reverseStrat.openUnreverseTrade(side, units, pair, additional);
 								Logger.console("Successfully opened an unreverse trade. Side: " + side + ", units: " + units + ", pair: " + pair);

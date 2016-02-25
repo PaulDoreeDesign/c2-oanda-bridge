@@ -140,7 +140,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 			Set<String> stillOpenReverse = new HashSet<String>();
 			Set<String> stillOpenUnreverse = new HashSet<String>();
 			for (JSONObject trade : allTrades) {
-				double stopLoss = trade.getDouble(TRAILING_STOP);
+				double trailingStopLoss = trade.getDouble(TRAILING_STOP);
 				String pair = trade.getString(INSTRUMENT);
 
 				boolean isReversedTrade;
@@ -157,6 +157,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 				// check if the trade has gone in our favour by INITIAL_STOP_LOSS pips
 				long tradeId = trade.getLong(ID);
 				double openPrice = trade.getDouble(PRICE);
+				double currentStopLoss = trade.getDouble(STOP_LOSS);
 				String openSide = trade.getString(SIDE);
 				String closeAction = openSide.equals(BUY) ? SELL : BUY; // action to take if we want to close the trade
 				double currentPrice = getOandaPrice(closeAction, pair);
@@ -165,7 +166,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 
 				// reversed trades: consider moving their stop-loss to break even, and setting set trailing stop
 				if (isReversedTrade) {
-					if (stopLoss == 0) { // trades that we haven't set the trailing stop for yet
+					if (trailingStopLoss == 0) { // trades that we haven't set the trailing stop for yet
 						if (profit >= TRAILING_STOP_LOSS) {
 							// when we reach INITIAL_STOP_LOSS pips in profit, we move stop-loss to break even
 							// and also set the trailing stop loss
@@ -174,16 +175,17 @@ public class ReverseStrategyHandler extends StrategyHandler {
 								"). Also set trailing stop to " + TRAILING_STOP_LOSS + " pips.");
 						}
 					} else {
-						if (profit >= (INITIAL_STOP_LOSS * 8)) { // 200 pips profit -> 100 pips stop-loss
+						int bigStop = TRAILING_STOP_LOSS * 2;
+						if (profit >= (INITIAL_STOP_LOSS * 8) && trailingStopLoss < bigStop) { // 200 pips profit -> 100 pips stop-loss
 							// double the trailing stop loss
-							modifyTrade(tradeId, openPrice, TRAILING_STOP_LOSS * 2);
+							modifyTrade(tradeId, openPrice, bigStop);
 							Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Trade for reversed [" + pair + "] reached " + profit + " pips profit, so moved trailing stop to " +
-									(TRAILING_STOP_LOSS * 2) + " pips.");
+									bigStop + " pips.");
 						}
 						// maybe additional settings here in the future...
 					}
 				// unreversed trades: consider moving their stop-loss to break even, but that's it.
-				} else if (stopLoss == 0 && profit >= INITIAL_STOP_LOSS) {
+				} else if (currentStopLoss != openPrice && profit >= INITIAL_STOP_LOSS) {
 					modifyTrade(tradeId, openPrice, NO_TRAILING_STOP);
 					Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Set trade for un-reversed [" + pair + "] to break-even (stop-loss = " + openPrice + "). No trailing stop.");
 				}

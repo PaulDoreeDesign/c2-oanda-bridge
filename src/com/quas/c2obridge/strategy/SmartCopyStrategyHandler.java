@@ -283,10 +283,14 @@ public class SmartCopyStrategyHandler extends StrategyHandler {
 			double stopLoss = bound; // stopLoss is relative to bound, not curPrice, for limit orders
 			if (side.equals(BUY)) stopLoss -= stopLossPrice;
 			else stopLoss += stopLossPrice;
+			// round bound and stoploss
+			boolean isJpyPair = pair.contains(JPY);
+			stopLoss = isJpyPair ? round2(stopLoss) : round4(stopLoss);
+			bound = isJpyPair ? round2(bound) : round4(bound);
 			// place the order
 			long orderId = createOrder(side, oandaPsize, pair, bound);
 			// modify the order to give it appropriate stop loss
-			modifyOrder(orderId, round4(stopLoss), NO_TRAILING_STOP);
+			modifyOrder(orderId, stopLoss, NO_TRAILING_STOP);
 			// add pair to currentlyOpen
 			currentlyOpen.add(pair);
 			// log info

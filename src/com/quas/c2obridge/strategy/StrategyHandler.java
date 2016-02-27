@@ -255,19 +255,6 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	}
 
 	/**
-	 * Rounds the given pips to the nearest 0.1 pips.
-	 *
-	 * @param diff the pips to round
-	 * @return the pips, rounded correctly
-	 */
-	public double roundPips(String pair, double diff) {
-		if (pair.contains(JPY)) diff *= 100;
-		else diff *= 10000;
-		diff = Math.round(diff * 10) / 10.0; // round to 1 decimal place
-		return diff;
-	}
-
-	/**
 	 * Converts the given pips into price. (1 pip = 0.0001 for most currencies, 1 pip = 0.01 for JPY currencies)
 	 *
 	 * @param pair the currency pair

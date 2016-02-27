@@ -289,7 +289,7 @@ public class ReverseStrategyHandler extends StrategyHandler {
 	@Override
 	public final void handleInfo(String action, String side, int psize, String pair, double oprice) throws IOException {
 		double curPrice = getOandaPrice(side, pair);
-		double diff = roundPips(pair, Math.abs(curPrice - oprice));
+		double diff = Math.abs(curPrice - oprice);
 
 		if (action.equals(OPEN)) {
 

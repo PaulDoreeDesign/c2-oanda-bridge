@@ -38,7 +38,7 @@ public class CopyStrategyHandler extends StrategyHandler {
 	 */
 	public void handleInfo(String action, String side, int psize, String pair, double oprice) throws IOException {
 		double compare = getOandaPrice(side, pair);
-		double diff = roundPips(pair, Math.abs(compare - oprice));
+		double diff = Math.abs(compare - oprice);
 
 		if (action.equals(OPEN)) {
 			// diff = difference between C2's opening price and oanda's current price, in pips

@@ -188,6 +188,8 @@ public class ReverseStrategyHandler extends StrategyHandler {
 				} else if (currentStopLoss != openPrice && profit >= INITIAL_STOP_LOSS) {
 					modifyTrade(tradeId, openPrice, NO_TRAILING_STOP);
 					Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Set trade for un-reversed [" + pair + "] to break-even (stop-loss = " + openPrice + "). No trailing stop.");
+				} else if (currentStopLoss != openPrice) {
+					Logger.info("[ReverseStrategy -> ReverseScheduleCheck] Trade for pair [" + pair + "] has profit of " + profit + " pips, not changing stop-loss yet.");
 				}
 			}
 

@@ -13,10 +13,10 @@ public interface IStrategyHandler {
 	public static final String ACC_CURRENCY = "AUD";
 
 	/** Acceptable difference between C2's open price and current Oanda price, in pips */
-	public static final int MAX_PIP_DIFF = 5; // 5 pips
+	public static final int MAX_PIP_DIFF = 8; // 8 pips
 
 	/** Current net account worth of the C2 strategy provider */
-	public static final int C2_PROVIDER_NET_WORTH = 1200000; // 1.2mil
+	public static final int C2_PROVIDER_NET_WORTH = 1600000; // 1.6mil USD
 
 	/** The string to search for to select emails by title */
 	public static final String SUBJECT_FIND = "[Collective2] Latest Trade Signals: Zip4x";

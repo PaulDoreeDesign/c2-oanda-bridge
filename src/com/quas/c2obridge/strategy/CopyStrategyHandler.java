@@ -58,9 +58,7 @@ public class CopyStrategyHandler extends StrategyHandler {
 				// @TODO maybe place limit order?
 			}
 		} else {
-			// try to close position instantly
-			// @TODO confirm position sizing is equivalent to entire position
-			// get all trades for this pair
+			// close position instantly
 			List<JSONObject> list = getTrades(pair); // json of all currently open trades for this pair
 			for (JSONObject trade : list) {
 				// close every trade returned for this pair

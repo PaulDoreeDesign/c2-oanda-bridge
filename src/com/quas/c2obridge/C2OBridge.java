@@ -30,6 +30,7 @@ public class C2OBridge {
 	public static final int REVERSE = 1;
 	public static final int SMART_COPY = 2;
 	public static final int EXACT_COPY = 3;
+	public static final int MANUAL_ENTRY = 4;
 
 	/** Oanda API details */
 	public static final String OANDA_API_KEY;
@@ -38,6 +39,7 @@ public class C2OBridge {
 	private static final int COPY_ACC_ID;
 	private static final int REVERSE_ACC_ID;
 	private static final int SMART_COPY_ACC_ID;
+	private static final int MANUAL_ENTRY_ACC_ID;
 
 	/** Email address without the @gmail.com domain */
 	public static final String EMAIL;
@@ -86,6 +88,7 @@ public class C2OBridge {
 		COPY_ACC_ID = Integer.parseInt(oandaProps.getProperty("COPY_ACC_ID"));
 		REVERSE_ACC_ID = Integer.parseInt(oandaProps.getProperty("REVERSE_ACC_ID"));
 		SMART_COPY_ACC_ID = Integer.parseInt(oandaProps.getProperty("SMART_COPY_ACC_ID"));
+		MANUAL_ENTRY_ACC_ID = Integer.parseInt(oandaProps.getProperty("MANUAL_ENTRY_ACC_ID"));
 	}
 
 	/** MessageHandler implementation */
@@ -103,6 +106,8 @@ public class C2OBridge {
 		strategyHandlers.put(SMART_COPY, new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
 		// exact copy strategy
 		strategyHandlers.put(EXACT_COPY, new CopyStrategyHandler(COPY_ACC_ID));
+		// manual entry strategy
+		strategyHandlers.put(MANUAL_ENTRY, new ManualEntryStrategyHandler(MANUAL_ENTRY_ACC_ID));
 		Logger.info("Number of strategies running: " + strategyHandlers.size());
 	}
 

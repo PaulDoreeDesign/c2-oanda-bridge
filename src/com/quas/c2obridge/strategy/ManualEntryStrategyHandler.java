@@ -96,6 +96,7 @@ public class ManualEntryStrategyHandler extends StrategyHandler {
 	@Override
 	public final void shutdown() {
 		Properties props = new Properties();
+
 		// save longOnC2
 		String longOnC2Line = "";
 		for (String pair : longOnC2.keySet()) {
@@ -103,6 +104,7 @@ public class ManualEntryStrategyHandler extends StrategyHandler {
 			longOnC2Line += pair + "/" + longOnC2.get(pair);
 		}
 		props.put(LONG_ON_C2, longOnC2Line);
+
 		// save shortOnC2
 		String shortOnC2Line = "";
 		for (String pair : shortOnC2.keySet()) {
@@ -110,6 +112,7 @@ public class ManualEntryStrategyHandler extends StrategyHandler {
 			shortOnC2Line += pair + "/" + shortOnC2.get(pair);
 		}
 		props.put(SHORT_ON_C2, shortOnC2Line);
+
 		// save currentlyOpen
 		String currentlyOpenLine = "";
 		for (String pair : currentlyOpen) {
@@ -181,9 +184,10 @@ public class ManualEntryStrategyHandler extends StrategyHandler {
 					double accountBalance = getAccountBalance();
 					int ourPsize = convert(psize, accountBalance);
 					openTrade(side, ourPsize, pair);
+					Logger.info("[ManualEntryStrategy] Pair [" + pair + "] was added to by C2, and copied by this strategy.");
 				} else {
 					// show alert, didn't make trade because diff was too large
-					Logger.error("[ManualEntryStrategy] Pair [" + pair + "] was added to by C2, but missed out because pip diff was [" + diff + "] pips.");
+					Logger.info("[ManualEntryStrategy] Pair [" + pair + "] was added to by C2, but missed out because pip diff was [" + diff + "] pips.");
 				}
 			} else if (longedOnC2 || shortedOnC2) {
 				// we haven't entered this pair, but it is being increased on C2. Update our records to reflect that increase

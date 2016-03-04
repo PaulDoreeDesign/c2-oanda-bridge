@@ -175,6 +175,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 
 					// handle the info directly if the message is a standard, one-trade message
 					// otherwise, only do the closes (do not touch opens in a multi)
+					/*
 					if (!multi || action.equals(CLOSE)) {
 						try {
 							handleInfo(action, side, psize, pair, oprice);
@@ -183,6 +184,17 @@ public abstract class StrategyHandler implements IStrategyHandler {
 							Logger.error("Error in StrategyHandler.handleInfo: " + e);
 							e.printStackTrace(Logger.err);
 						}
+					}
+					*/
+
+					// allow multi messages
+					try {
+						Logger.info("Trying to handle info.");
+						handleInfo(action, side, psize, pair, oprice);
+					} catch(Exception e) {
+						// catch ALL exceptions: handleInfo can throw IOExceptions AND RuntimeExceptions
+						Logger.error("Error in StrategyHandler.handleInfo: " + e);
+						e.printStackTrace(Logger.err);
 					}
 
 					i += 4; // will be pointing to the id of the next trade if multitrade

@@ -174,28 +174,26 @@ public class ManualEntryStrategyHandler extends StrategyHandler {
 		boolean shortedOnC2 = shortOnC2.containsKey(pair);
 
 		if (opening) {
-			if (currentlyOpen.contains(pair)) {
-				// we've entered this pair, let's add to our position
-				// first, check that the pip difference isn't too huge against us
-				double livePrice = getOandaPrice(side, pair);
-				double diff = Math.abs(livePrice - c2OpenedPrice);
-				if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && livePrice < c2OpenedPrice) || (side.equals(SELL) && livePrice > c2OpenedPrice)) {
-					// difference is small enough, actually open the trade
-					double accountBalance = getAccountBalance();
-					int ourPsize = convert(psize, accountBalance);
-					openTrade(side, ourPsize, pair);
-					Logger.info("[ManualEntryStrategy] Pair [" + pair + "] was added to by C2, and copied by this strategy.");
-				} else {
-					// show alert, didn't make trade because diff was too large
-					Logger.info("[ManualEntryStrategy] Pair [" + pair + "] was added to by C2, but missed out because pip diff was [" + diff + "] pips.");
+			boolean weHaveOpen = currentlyOpen.contains(pair); // whether or not we have this pair currently opened (ie. manually entered)
+			boolean addedToByC2 = longedOnC2 || shortedOnC2; // whether or not it has already been logged as open on C2
+			if (weHaveOpen || addedToByC2) {
+				if (weHaveOpen) {
+					// we've entered this pair, let's add to our position
+					// first, check that the pip difference isn't too huge against us
+					double livePrice = getOandaPrice(side, pair);
+					double diff = Math.abs(livePrice - c2OpenedPrice);
+					if (diff <= MAX_PIP_DIFF || (side.equals(BUY) && livePrice < c2OpenedPrice) || (side.equals(SELL) && livePrice > c2OpenedPrice)) {
+						// difference is small enough, actually open the trade
+						double accountBalance = getAccountBalance();
+						int ourPsize = convert(psize, accountBalance);
+						openTrade(side, ourPsize, pair);
+						Logger.info("[ManualEntryStrategy] Pair [" + pair + "] was added to by C2, and copied by this strategy.");
+					} else {
+						// show alert, didn't make trade because diff was too large
+						Logger.info("[ManualEntryStrategy] Pair [" + pair + "] was added to by C2, but missed out because pip diff was [" + diff + "] pips.");
+					}
 				}
-			} else if (longedOnC2 || shortedOnC2) {
-				// we haven't entered this pair, but it is being increased on C2. Update our records to reflect that increase
-				if ((longedOnC2 && !tradeLong) || (!longedOnC2 && tradeLong)) {
-					Logger.error("[ManualEntryStrategy] Pair [" + pair + "] is in " + (longedOnC2 ? "longOnC2" : "shortOnC2") + ", but trade side is " + side);
-					return;
-				}
-				// passed checks, actually update
+				// update our logs of C2's position size, regardless of whether or not we have manually entered this yet
 				Map<String, Integer> onC2;
 				if (longedOnC2) onC2 = longOnC2;
 				else onC2 = shortOnC2;

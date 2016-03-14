@@ -132,7 +132,7 @@ public class ManualEntryStrategyHandler extends StrategyHandler {
 		}
 	}
 
-	public void tryManualEntry(String side, String pair, int size) {
+	public void tryManualEntry(String side, String pair, int size, double multiplier) {
 		if (currentlyOpen.contains(pair)) {
 			Logger.console("[ManualEntryStrategy] Pair [" + pair + "] has already been manually entered. No action taken.");
 			return;
@@ -158,7 +158,10 @@ public class ManualEntryStrategyHandler extends StrategyHandler {
 			// send request to oanda
 			double accountBalance = getAccountBalance();
 			int ourSize = convert(size, accountBalance);
-			Logger.console("[ManualEntryStrategy] Converted C2 size of [" + size + "] into our proportional Oanda size of [" + ourSize + "] units");
+			// adjust according to multiplier
+			ourSize = (int) Math.ceil(ourSize * multiplier);
+
+			Logger.console("[ManualEntryStrategy] Converted C2 size of [" + size + "] into our proportional Oanda size of [" + ourSize + "] units (Multiplier: " + multiplier + ")");
 			openTrade(side, ourSize, pair);
 			Logger.console("[ManualEntryStrategy] Successfully entered trade for [" + pair + "] of size [" + ourSize + "] units.");
 		} else {

@@ -49,8 +49,8 @@ public class CommandLineHandler implements Runnable {
 							ManualEntryStrategyHandler manualEntryStrat = (ManualEntryStrategyHandler) strategies.get(C2OBridge.MANUAL_ENTRY);
 							String pair;
 							int size; // to validate that the size is correct
-							if (args.length != 5) {
-								Logger.console("Invalid format. Use: 'manualentry buy/sell currencyA currencyB size' (where size = C2 size ie. 10,000 units each)");
+							if (args.length != 5 && args.length != 6) {
+								Logger.console("Invalid format. Use: 'manualentry buy/sell currencyA currencyB size [partialPercentage]' (where size = C2 size ie. 10,000 units each)");
 								continue;
 							}
 							String side = args[1].toLowerCase();
@@ -71,8 +71,21 @@ public class CommandLineHandler implements Runnable {
 								Logger.console("Size must be a valid integer.");
 								continue;
 							}
+							// allow for partial entries
+							double multiplier = 1.0D;
+							if (args.length == 6) {
+								try {
+									int percent = Integer.parseInt(args[5]);
+									if (percent < 10 || percent > 100)  throw new NumberFormatException();
 
-							manualEntryStrat.tryManualEntry(side, pair, size);
+									// set partialEntry to % on 0-1 scale
+									multiplier = (percent / 100.0D);
+								} catch (NumberFormatException nfe) {
+									Logger.console("Partial must be an integer between 10 and 100 (%).");
+								}
+							}
+
+							manualEntryStrat.tryManualEntry(side, pair, size, multiplier);
 
 						} else if (strategy.equals("reverse")) {
 							ReverseStrategyHandler reverseStrat = (ReverseStrategyHandler) strategies.get(C2OBridge.REVERSE);

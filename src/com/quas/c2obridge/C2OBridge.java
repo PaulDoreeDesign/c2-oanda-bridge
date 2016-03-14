@@ -101,13 +101,24 @@ public class C2OBridge {
 		// initialise the applicable strategies and their account ids
 		this.strategyHandlers = new HashMap<Integer, StrategyHandler>();
 		// reverse strategy
-		strategyHandlers.put(REVERSE, new ReverseStrategyHandler(REVERSE_ACC_ID));
+		if (REVERSE_ACC_ID != 0) {
+			strategyHandlers.put(REVERSE, new ReverseStrategyHandler(REVERSE_ACC_ID));
+		}
 		// smart copy strategy
-		strategyHandlers.put(SMART_COPY, new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
+		if (SMART_COPY_ACC_ID != 0) {
+			strategyHandlers.put(SMART_COPY, new SmartCopyStrategyHandler(SMART_COPY_ACC_ID));
+		}
 		// exact copy strategy
-		strategyHandlers.put(EXACT_COPY, new CopyStrategyHandler(COPY_ACC_ID));
+		if (COPY_ACC_ID != 0) {
+			strategyHandlers.put(EXACT_COPY, new CopyStrategyHandler(COPY_ACC_ID));
+		}
 		// manual entry strategy
-		strategyHandlers.put(MANUAL_ENTRY, new ManualEntryStrategyHandler(MANUAL_ENTRY_ACC_ID));
+		if (MANUAL_ENTRY_ACC_ID != 0) {
+			strategyHandlers.put(MANUAL_ENTRY, new ManualEntryStrategyHandler(MANUAL_ENTRY_ACC_ID));
+		}
+		if (strategyHandlers.size() == 0) {
+			throw new RuntimeException("Invalid config file: no strategies are enabled!");
+		}
 		Logger.info("Number of strategies running: " + strategyHandlers.size());
 	}
 

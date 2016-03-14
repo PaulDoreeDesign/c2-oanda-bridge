@@ -28,12 +28,20 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	private final int accountId;
 
 	/**
+	 * Set of c2 trade ids that have been already received and processed this session. Used to detect and ignore
+	 * multiple emails for the same trades (which the C2 email servers occasionally mess up and send).
+	 */
+	private Set<Integer> receivedC2TradeIds;
+
+	/**
 	 * Constructor for a strategy. Locks in the account id for this strategy upon creation.
 	 *
 	 * @param accountId the account id for this strategy
 	 */
 	public StrategyHandler(int accountId) {
 		this.accountId = accountId;
+
+		this.receivedC2TradeIds = new HashSet<Integer>();
 	}
 
 	/**
@@ -90,6 +98,17 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	}
 
 	/**
+	 * Called by handleMessage with the info extracted from the email.
+	 *
+	 * @param action the action being undertaken: OPEN or CLOSE
+	 * @param side the side being undertaken: BUY or SELL
+	 * @param psize the position size opened by C2
+	 * @param pair the currency pair being traded
+	 * @param oprice the price at which C2 opened the position
+	 */
+	public abstract void handleInfo(String action, String side, int psize, String pair, double oprice) throws IOException;
+
+	/**
 	 * Extracts the relevant information from the newly-received message, and calls the implementing strategy
 	 * handler.
 	 *
@@ -111,8 +130,9 @@ public abstract class StrategyHandler implements IStrategyHandler {
 			int stop = body.indexOf(SEARCH_STOP_STRING);
 			String relevant = body.substring(start, stop);
 			String[] parts = relevant.trim().split("\\s+");
-			boolean multi = parts.length > 28; // whether or not this is a multi email
+			// boolean multi = parts.length > 28; // whether or not this is a multi email
 
+			int c2Id; // the id of the trade on C2's system. use to detect and ignore multiple emails for the same trade.
 			String action;
 			String side;
 			int psize;
@@ -123,7 +143,7 @@ public abstract class StrategyHandler implements IStrategyHandler {
 				boolean reachedEnd = false;
 				int i = 0;
 				while (!reachedEnd) {
-					Integer.parseInt(parts[i]);
+					c2Id = Integer.parseInt(parts[i]);
 					i += 3;
 					if (!parts[i].equals("ET"))
 						throw new RuntimeException("'ET' not in expected position, got " + parts[i] + " instead");
@@ -187,14 +207,19 @@ public abstract class StrategyHandler implements IStrategyHandler {
 					}
 					*/
 
-					// allow multi messages
-					try {
-						Logger.info("Trying to handle info.");
-						handleInfo(action, side, psize, pair, oprice);
-					} catch(Exception e) {
-						// catch ALL exceptions: handleInfo can throw IOExceptions AND RuntimeExceptions
-						Logger.error("Error in StrategyHandler.handleInfo: " + e);
-						e.printStackTrace(Logger.err);
+					// only actually handle the message if it isn't a duplicate
+					if (!receivedC2TradeIds.contains(c2Id)) {
+						receivedC2TradeIds.add(c2Id);
+						try {
+							Logger.info("Trying to handle info.");
+							handleInfo(action, side, psize, pair, oprice);
+						} catch (Exception e) {
+							// catch ALL exceptions: handleInfo can throw IOExceptions AND RuntimeExceptions
+							Logger.error("Error in StrategyHandler.handleInfo: " + e);
+							e.printStackTrace(Logger.err);
+						}
+					} else {
+						Logger.info("Received a multiple email with the trade id " + c2Id + "!!!");
 					}
 
 					i += 4; // will be pointing to the id of the next trade if multitrade
@@ -527,15 +552,4 @@ public abstract class StrategyHandler implements IStrategyHandler {
 	public void shutdown() {
 		// do nothing
 	}
-
-	/**
-	 * Called by handleMessage with the info extracted from the email.
-	 *
-	 * @param action the action being undertaken: OPEN or CLOSE
-	 * @param side the side being undertaken: BUY or SELL
-	 * @param psize the position size opened by C2
-	 * @param pair the currency pair being traded
-	 * @param oprice the price at which C2 opened the position
-	 */
-	public abstract void handleInfo(String action, String side, int psize, String pair, double oprice) throws IOException;
 }

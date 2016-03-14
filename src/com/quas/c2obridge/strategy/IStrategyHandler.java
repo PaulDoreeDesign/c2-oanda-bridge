@@ -5,6 +5,8 @@ import javax.mail.MessagingException;
 import java.io.IOException;
 
 /**
+ * Interface implemented by all strategy handles. Contains relevant constants.
+ *
  * Created by Quasar on 2/12/2015.
  */
 public interface IStrategyHandler {
@@ -16,7 +18,7 @@ public interface IStrategyHandler {
 	public static final int MAX_PIP_DIFF = 8; // 8 pips
 
 	/** Current net account worth of the C2 strategy provider */
-	public static final int C2_PROVIDER_NET_WORTH = 1600000; // 1.6mil USD
+	public static final int C2_PROVIDER_NET_WORTH = 1700000; // 1.7mil USD
 
 	/** The string to search for to select emails by title */
 	public static final String SUBJECT_FIND = "[Collective2] Latest Trade Signals: Zip4x";

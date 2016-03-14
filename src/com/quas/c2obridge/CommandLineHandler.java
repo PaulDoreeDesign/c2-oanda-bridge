@@ -82,6 +82,7 @@ public class CommandLineHandler implements Runnable {
 									multiplier = (percent / 100.0D);
 								} catch (NumberFormatException nfe) {
 									Logger.console("Partial must be an integer between 10 and 100 (%).");
+									continue;
 								}
 							}
 

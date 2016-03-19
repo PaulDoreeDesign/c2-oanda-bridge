@@ -1,8 +1,9 @@
 ## artifact jars out folder
 out/
 
-## intellij folder
+## intellij folder and project files
 .idea/
+c2-oanda-bridge.iml
 
 ## config files should not be touched
 gmail.properties

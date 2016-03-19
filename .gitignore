@@ -5,11 +5,6 @@ out/
 .idea/
 c2-oanda-bridge.iml
 
-## config files should not be touched
-gmail.properties
-oanda.properties
-smtp.properties
-
 ## log files
 *.txt
 
